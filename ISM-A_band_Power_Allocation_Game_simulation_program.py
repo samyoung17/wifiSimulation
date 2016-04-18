@@ -44,6 +44,12 @@ def distance(node1, node2):
 
 ####################################################################################################
 
+#manhattan distance path loss
+
+####
+
+
+
 # path loss calculation acording to ITU model for indoor propagation
 # ITU-R  P.1238-7
 def pathLoss(d):
@@ -52,7 +58,6 @@ def pathLoss(d):
     dd = 1
   L = 20*log10(2400)+30*log10(dd) + 14 - 28
   return 1.0/(10.0**(L/10.0))
-  
 # function calculates SINR for user number k
 # transList - list of transmitters in a system
 # recList - list of receivers in a system
