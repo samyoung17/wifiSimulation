@@ -1,5 +1,4 @@
 from numpy import *
-import inspect
 import matplotlib.pyplot as plt
 import random
 
@@ -29,9 +28,25 @@ AP_INITIAL_POWER = 0.1
 MS_INITIAL_POWER = 0.1
 
 SINR_FLOOR = 3
-WHITE_NOISE = 4e-11
+WHITE_NOISE = 7.9e-11
 
-       
+TAU_M=0.1
+TAU_R1=0.7
+TAU_R2=0.7
+C=3e8
+#taken from 802.11n spec for 2.4 gHz, times in s
+SIFS = 10e-6
+DIFS = 28e-6
+SLOT_TIME = 9e-6   
+#bytes/second
+TRANSMISSION_SPEED=72.2e6/8
+#theoretical 802.11n 20mHz transmission rate, very optimistic (ignores SNR, signal power etc)
+
+#in bytes
+RTS = 20
+CTS = 14
+ACK = 14
+EXPECTED_PACKET_SIZE = 3000 #guesswork, typically needs to be >2347 for RTS/CTS
 #Place an AP and n mobile stations at random positions in a 8x8 flat
 def createNetwork(xOffset, yOffset, numStations):
     apX = xOffset + random.random() * FLAT_WIDTH
@@ -75,9 +90,42 @@ def sinr(transmitter, receiver, interferingAp, whiteNoise):
   else:      
       interferenceVolume = interferingAp.p * pathLoss(distance(interferingAp, receiver))
       return signalVolume / (interferenceVolume + whiteNoise)
-  
-def networkCapacity (network, interferingAp, tauR, tauM):
-    return 1
+def expectedPropagationDelay(network):
+    delay=0
+    for i in range(len(network.mobileStations)):
+        d=distance(network.accessPoint, network.mobileStations[i])
+        delay+=d/C
+    return delay/len(network.mobileStations)
+    
+def transmissionDelay(packet_size):
+    return packet_size/TRANSMISSION_SPEED
+    
+def probabilityOfExactlyOneTransmission(k, n,tauM, tauR1, tauR2, isRouterCochannel):
+    if isRouterCochannel:
+        pRouterInterference = tauR2
+    else:
+        pRouterInterference = 0
+    return k*tauM*power(1-tauM,n-1)*(1-tauR1)*(1-tauR2)  \
+        + (n-k)*tauM*power(1-tauM,n-1)*(1-tauR1)    \
+        + tauR1*power(1-tauM,n)*(1-pRouterInterference)
+    
+def networkCapacity (network, interferingAp, tauR1, tauM, tauR2, expectedPayload):
+    k = len(stationsWithCochannelInterference(network, interferingAp))    
+    n=len(network.mobileStations)
+    #Assuming basic DCF with RTS/CTS with fixed packet sizes
+    emptySlotTime = SLOT_TIME
+    timeBusyCollision = expectedPropagationDelay(network)+DIFS+transmissionDelay(RTS)
+    timeBusySuccessful = transmissionDelay(RTS)+transmissionDelay(CTS)+transmissionDelay(ACK)+transmissionDelay(expectedPayload)+4*expectedPropagationDelay(network)+3*SIFS+DIFS
+    isRouterCochannel = isCochannelInterference(interferingAp, network.accessPoint, WHITE_NOISE)
+    pExactlyOneTransmission = probabilityOfExactlyOneTransmission(k,n,tauM,tauR1,tauR2, isRouterCochannel)
+    pAtLeastOneTransmission = 1- (power(1-tauM,n)*(1-tauR1))
+    pSuccessfulTransmission = pExactlyOneTransmission / pAtLeastOneTransmission
+    #Capacity - probability of successful transmission * expected payload over slot time
+    return pSuccessfulTransmission*pAtLeastOneTransmission*expectedPayload /    \
+        ( (1-pAtLeastOneTransmission)*emptySlotTime + \
+        pAtLeastOneTransmission*pSuccessfulTransmission*timeBusySuccessful+ \
+        pAtLeastOneTransmission*(1-pSuccessfulTransmission)*timeBusyCollision)
+
 
 def plotNodes(nodes, colour):
     plt.plot(map(lambda ms: ms.x, nodes), map(lambda ms: ms.y, nodes), colour)
@@ -111,7 +159,7 @@ def main():
     mssWithIcIntf = stationsWithInterchannelInterference(network1, network2.accessPoint)
     isRouterCochannel = isCochannelInterference(network2.accessPoint, network1.accessPoint, WHITE_NOISE)
     plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, network1.accessPoint)
-
+    print networkCapacity(network1, network2.accessPoint, TAU_R1, TAU_M, TAU_R2, EXPECTED_PACKET_SIZE)
 
 main()
 
