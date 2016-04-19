@@ -1,6 +1,7 @@
 from numpy import *
 import inspect
 import matplotlib.pyplot as plt
+import random
 
 
 class AccessPoint:
@@ -24,22 +25,22 @@ class Network:
 NUMBER_OF_STATIONS = 10
 FLAT_WIDTH = 8
 FLAT_LENGTH = 8
-AP_INITIAL_POWER = 1
-MS_INITIAL_POWER = 1e-1
+AP_INITIAL_POWER = 0.1
+MS_INITIAL_POWER = 0.1
 
 SINR_FLOOR = 3
-WHITE_NOISE = 5
+WHITE_NOISE = 0.01
 
        
 #Place an AP and n mobile stations at random positions in a 8x8 flat
 def createNetwork(xOffset, yOffset, numStations):
-    apX = xOffset + random.rand() * FLAT_WIDTH
-    apY = yOffset + random.rand() * FLAT_LENGTH
+    apX = xOffset + random.random() * FLAT_WIDTH
+    apY = yOffset + random.random() * FLAT_LENGTH
     ap = AccessPoint(apX, apY, AP_INITIAL_POWER)
     stations = []
     for i in range(numStations):
-        msX = xOffset + random.rand() * FLAT_WIDTH
-        msY = yOffset + random.rand() * FLAT_LENGTH
+        msX = xOffset + random.random() * FLAT_WIDTH
+        msY = yOffset + random.random() * FLAT_LENGTH
         ms = MobileStation(msX, msY, MS_INITIAL_POWER)
         stations.append(ms)
     return Network(ap, stations)
@@ -77,10 +78,11 @@ def sinr(transmitter, receiver, interferingAp, whiteNoise):
   
 def networkCapacity (network, interferingAp, tauR, tauM):
     return 1
-    
+
 def plotNetworks(network1, network2):
+    plt.figure(figsize=(9, 3))
     plt.plot(map(lambda ms: ms.x, network1.mobileStations), map(lambda ms: ms.y, network1.mobileStations), 'ro')
-    plt.plot(map(lambda ms: ms.x, network2.mobileStations), map(lambda ms: ms.y, network1.mobileStations), 'bo')
+    plt.plot(map(lambda ms: ms.x, network2.mobileStations), map(lambda ms: ms.y, network2.mobileStations), 'bo')
     plt.plot([network1.accessPoint.x], [network1.accessPoint.y], 'gs')
     plt.plot([network2.accessPoint.x], [network2.accessPoint.y], 'gs')
     plt.axis([0, FLAT_WIDTH * 3, 0, FLAT_LENGTH])
