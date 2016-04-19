@@ -185,6 +185,23 @@ def getAverageDataRate20MHZ(network, interferingAP):
             mcs=7
         dataRate+=MCSToDataRateSwitcher.get(mcs, 65)
     return dataRate/len(network.mobileStations)
+    
+def tempPowerIncrementing(network1, network2):
+    #just a temporary function to see how changing interfering AP power affects the model
+    powList = []
+    capList = []
+    dataRateList = []
+
+    for i in range (0,30):
+       # print "Interfering AP power: ", network2.accessPoint.p
+        powList.append(network2.accessPoint.p)
+        capList.append(networkCapacity(network1, network2.accessPoint, TAU_R1, TAU_M, TAU_R2, EXPECTED_PACKET_SIZE))
+        dataRateList.append(getAverageDataRate20MHZ(network1, network2.accessPoint))
+        network2.accessPoint.p=network2.accessPoint.p+0.05*network2.accessPoint.p
+    plt.plot(powList, dataRateList,'r')
+    plt.show()
+    
+    
 def main():
     network1 = createNetwork(0, 0, 10)
     network2 = createNetwork(16, 0, 10)
@@ -194,12 +211,14 @@ def main():
     mssWithIcIntf = stationsWithInterchannelInterference(network1, network2.accessPoint)
     isRouterCochannel = isCochannelInterference(network2.accessPoint, network1.accessPoint, WHITE_NOISE)
     plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, network1.accessPoint)
-    
+    tempPowerIncrementing(network1, network2)
 #    for i in range(len(network1.mobileStations)):
  #       print rint(sinr(network1.accessPoint, network1.mobileStations[i], network2.accessPoint, WHITE_NOISE))
  #       print distance(network1.accessPoint, network1.mobileStations[i])
-    print "Network capacity:", networkCapacity(network1, network2.accessPoint, TAU_R1, TAU_M, TAU_R2, EXPECTED_PACKET_SIZE), "bytes/s"
-    print "Average data rate:", getAverageDataRate20MHZ(network1, network2.accessPoint), "Mbit/s"    
+
+      
+     
+        
 main()
 
 
