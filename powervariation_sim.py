@@ -29,7 +29,7 @@ AP_INITIAL_POWER = 0.1
 MS_INITIAL_POWER = 0.1
 
 SINR_FLOOR = 3
-WHITE_NOISE = 0.01
+WHITE_NOISE = 4e-11
 
        
 #Place an AP and n mobile stations at random positions in a 8x8 flat
@@ -79,12 +79,26 @@ def sinr(transmitter, receiver, interferingAp, whiteNoise):
 def networkCapacity (network, interferingAp, tauR, tauM):
     return 1
 
+def plotNodes(nodes, colour):
+    plt.plot(map(lambda ms: ms.x, nodes), map(lambda ms: ms.y, nodes), colour)
+    
 def plotNetworks(network1, network2):
     plt.figure(figsize=(9, 3))
-    plt.plot(map(lambda ms: ms.x, network1.mobileStations), map(lambda ms: ms.y, network1.mobileStations), 'ro')
-    plt.plot(map(lambda ms: ms.x, network2.mobileStations), map(lambda ms: ms.y, network2.mobileStations), 'bo')
-    plt.plot([network1.accessPoint.x], [network1.accessPoint.y], 'gs')
-    plt.plot([network2.accessPoint.x], [network2.accessPoint.y], 'gs')
+    plotNodes(network1.mobileStations, 'ro')
+    plotNodes(network2.mobileStations, 'bo')
+    plotNodes([network1.accessPoint], 'gs')
+    plotNodes([network2.accessPoint], 'gs')
+    plt.axis([0, FLAT_WIDTH * 3, 0, FLAT_LENGTH])
+    plt.show()
+
+def plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, accessPoint):
+    plt.figure(figsize=(9, 3))
+    plotNodes(mssWithCcIntf, 'rs')
+    plotNodes(mssWithIcIntf, 'ro')
+    if isRouterCochannel:
+        plotNodes([accessPoint], 'gs')
+    else:
+        plotNodes([accessPoint], 'go')
     plt.axis([0, FLAT_WIDTH * 3, 0, FLAT_LENGTH])
     plt.show()
 
@@ -96,6 +110,7 @@ def main():
     mssWithCcIntf = stationsWithCochannelInterference(network1, network2.accessPoint)    
     mssWithIcIntf = stationsWithInterchannelInterference(network1, network2.accessPoint)
     isRouterCochannel = isCochannelInterference(network2.accessPoint, network1.accessPoint, WHITE_NOISE)
+    plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, network1.accessPoint)
 
 
 main()
