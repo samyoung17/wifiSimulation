@@ -46,7 +46,7 @@ TRANSMISSION_SPEED=72.2e6/8
 RTS = 20
 CTS = 14
 ACK = 14
-EXPECTED_PACKET_SIZE = 3000 #guesswork, typically needs to be >2347 for RTS/CTS
+EXPECTED_PACKET_SIZE = 2500 #guesswork, typically needs to be >2347 for RTS/CTS
 #Place an AP and n mobile stations at random positions in a 8x8 flat
 def createNetwork(xOffset, yOffset, numStations):
     apX = xOffset + random.random() * FLAT_WIDTH
@@ -97,8 +97,9 @@ def expectedPropagationDelay(network):
         delay+=d/C
     return delay/len(network.mobileStations)
     
-def transmissionDelay(packet_size):
-    return packet_size/TRANSMISSION_SPEED
+def averageTransmissionDelay(packet_size, network1, interferingAp):
+    dataRate = getAverageDataRate20MHZ(network1, interferingAp)*1e6/8 #convert from mbits to bytes/s
+    return packet_size/dataRate
     
 def probabilityOfExactlyOneTransmission(k, n,tauM, tauR1, tauR2, isRouterCochannel):
     if isRouterCochannel:
@@ -115,7 +116,7 @@ def networkCapacity (network, interferingAp, tauR1, tauM, tauR2, expectedPayload
     #Assuming basic DCF with RTS/CTS with fixed packet sizes
     emptySlotTime = SLOT_TIME
     timeBusyCollision = expectedPropagationDelay(network)+DIFS+transmissionDelay(RTS)
-    timeBusySuccessful = transmissionDelay(RTS)+transmissionDelay(CTS)+transmissionDelay(ACK)+transmissionDelay(expectedPayload)+4*expectedPropagationDelay(network)+3*SIFS+DIFS
+    timeBusySuccessful = averageTransmissionDelay(RTS, network, interferingAp)+averageTransmissionDelay(CTS, network, interferingAp)+averageTransmissionDelay(ACK, network, interferingAp)+averageTransmissionDelay(expectedPayload, network, interferingAp)+4*expectedPropagationDelay(network)+3*SIFS+DIFS
     isRouterCochannel = isCochannelInterference(interferingAp, network.accessPoint, WHITE_NOISE)
     pExactlyOneTransmission = probabilityOfExactlyOneTransmission(k,n,tauM,tauR1,tauR2, isRouterCochannel)
     pAtLeastOneTransmission = 1- (power(1-tauM,n)*(1-tauR1))
@@ -149,7 +150,41 @@ def plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, accessPoin
         plotNodes([accessPoint], 'go')
     plt.axis([0, FLAT_WIDTH * 3, 0, FLAT_LENGTH])
     plt.show()
-
+def getAverageDataRate20MHZ(network, interferingAP):
+    dataRate=0
+    MCSToDataRateSwitcher = {
+        00: 0,
+        0: 6.5,
+        1: 13,
+        2: 19.5,
+        3: 26,
+        4: 39,
+        5: 52,
+        6: 58.5,
+        7: 65
+    }
+    for i in range(len(network.mobileStations)):
+        snr=sinr(network.accessPoint, network.mobileStations[i], interferingAP, WHITE_NOISE)
+        if snr<3:
+            mcs=00;
+        elif snr<5:
+            mcs=0
+        elif snr<9:
+            mcs=1
+        elif snr<11:
+            mcs=2
+        elif snr<15:
+            mcs=3
+        elif snr<18:
+            mcs=4            
+        elif snr<20:
+            mcs=5
+        elif snr<25:
+            mcs=6            
+        else:
+            mcs=7
+        dataRate+=MCSToDataRateSwitcher.get(mcs, 65)
+    return dataRate/len(network.mobileStations)
 def main():
     network1 = createNetwork(0, 0, 10)
     network2 = createNetwork(16, 0, 10)
@@ -159,8 +194,12 @@ def main():
     mssWithIcIntf = stationsWithInterchannelInterference(network1, network2.accessPoint)
     isRouterCochannel = isCochannelInterference(network2.accessPoint, network1.accessPoint, WHITE_NOISE)
     plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, network1.accessPoint)
-    print networkCapacity(network1, network2.accessPoint, TAU_R1, TAU_M, TAU_R2, EXPECTED_PACKET_SIZE)
-
+    
+#    for i in range(len(network1.mobileStations)):
+ #       print rint(sinr(network1.accessPoint, network1.mobileStations[i], network2.accessPoint, WHITE_NOISE))
+ #       print distance(network1.accessPoint, network1.mobileStations[i])
+    print "Network capacity:", networkCapacity(network1, network2.accessPoint, TAU_R1, TAU_M, TAU_R2, EXPECTED_PACKET_SIZE), "bytes/s"
+    print "Average data rate:", getAverageDataRate20MHZ(network1, network2.accessPoint), "Mbit/s"    
 main()
 
 
