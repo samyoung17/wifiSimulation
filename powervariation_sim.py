@@ -31,9 +31,11 @@ POWER_INCREMENT = 0.01
 SINR_FLOOR = 3
 WHITE_NOISE = 7.9e-11
 
-TAU_M=0.1
-TAU_R1=0.7
-TAU_R2=0.7
+Q_M=0.1
+Q_R1=0.7
+Q_R2=0.7
+CW_MIN = 16
+
 C=3e8
 #taken from 802.11n spec for 2.4 gHz, times in s
 SIFS = 10e-6
@@ -42,6 +44,7 @@ SLOT_TIME = 9e-6
 #bytes/second
 TRANSMISSION_SPEED=72.2e6/8
 #theoretical 802.11n 20mHz transmission rate, very optimistic (ignores SNR, signal power etc)
+
 
 #in bytes
 RTS = 20
@@ -104,9 +107,12 @@ def averageTransmissionDelay(packet_size, network1, interferingAp):
 def normalisedTransmissionDelay(packet_size, network1, interferingAp):
     dataRate = 65*1e6/8
     return packet_size/dataRate
+
+# Esti
+def estimateTransitionProbability(windowSize):
+    return 2.0 / (windowSize + 1)
     
-    
-def probabilityOfExactlyOneTransmission(k, n,tauM, tauR1, tauR2, isRouterCochannel):
+def probabilityOfExactlyOneTransmission(k, n, tauM, tauR1, tauR2, isRouterCochannel):
     if isRouterCochannel:
         pRouterInterference = tauR2
     else:
@@ -115,9 +121,13 @@ def probabilityOfExactlyOneTransmission(k, n,tauM, tauR1, tauR2, isRouterCochann
         + (n-k)*tauM*power(1-tauM,n-1)*(1-tauR1)    \
         + tauR1*power(1-tauM,n)*(1-pRouterInterference)
     
-def normalisedNetworkCapacity(network, interferingAp, tauR1, tauM, tauR2, expectedPayload):
-    k = len(stationsWithCochannelInterference(network, interferingAp))    
-    n=len(network.mobileStations)
+def normalisedNetworkThroughput(network, interferingAp, qM, qR1, qR2, expectedPayload):
+    k = len(stationsWithCochannelInterference(network, interferingAp))
+    n = len(network.mobileStations)
+    tauSat = estimateTransitionProbability(16)
+    tauM = qM * tauSat
+    tauR1 = qR1 * tauSat
+    tauR2 = qR2 * tauSat
     #Assuming basic DCF with RTS/CTS with fixed packet sizes
     emptySlotTime = SLOT_TIME
     timeBusyCollision = expectedPropagationDelay(network)+DIFS+normalisedTransmissionDelay(RTS, network, interferingAp)
@@ -191,6 +201,7 @@ def getAverageDataRate20MHZ(network, interferingAP):
             mcs=7
         dataRate+=MCSToDataRateSwitcher.get(mcs, 65)
     return dataRate/len(network.mobileStations)
+    
 def tempPowerIncrementing(network1, network2):
     #just a temporary function to see how changing interfering AP power affects the model
     powList = []
@@ -200,7 +211,7 @@ def tempPowerIncrementing(network1, network2):
     for i in range (0,40):
        # print "Interfering AP power: ", network2.accessPoint.p
         powList.append(network2.accessPoint.p)
-        cap=normalisedNetworkCapacity(network1, network2.accessPoint, TAU_R1, TAU_M, TAU_R2, EXPECTED_PACKET_SIZE)
+        cap=normalisedNetworkThroughput(network1, network2.accessPoint, Q_M, Q_R1, Q_R2, EXPECTED_PACKET_SIZE)
         normCapList.append(cap)
         dr=getAverageDataRate20MHZ(network1, network2.accessPoint)
         dataRateList.append(dr)
