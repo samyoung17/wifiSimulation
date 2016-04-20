@@ -100,6 +100,11 @@ def expectedPropagationDelay(network):
 def averageTransmissionDelay(packet_size, network1, interferingAp):
     dataRate = getAverageDataRate20MHZ(network1, interferingAp)*1e6/8 #convert from mbits to bytes/s
     return packet_size/dataRate
+ 
+def normalisedTransmissionDelay(packet_size, network1, interferingAp):
+    dataRate = 65*1e6/8
+    return packet_size/dataRate
+    
     
 def probabilityOfExactlyOneTransmission(k, n,tauM, tauR1, tauR2, isRouterCochannel):
     if isRouterCochannel:
@@ -110,19 +115,19 @@ def probabilityOfExactlyOneTransmission(k, n,tauM, tauR1, tauR2, isRouterCochann
         + (n-k)*tauM*power(1-tauM,n-1)*(1-tauR1)    \
         + tauR1*power(1-tauM,n)*(1-pRouterInterference)
     
-def networkCapacity (network, interferingAp, tauR1, tauM, tauR2, expectedPayload):
+def normalisedNetworkCapacity(network, interferingAp, tauR1, tauM, tauR2, expectedPayload):
     k = len(stationsWithCochannelInterference(network, interferingAp))    
     n=len(network.mobileStations)
     #Assuming basic DCF with RTS/CTS with fixed packet sizes
     emptySlotTime = SLOT_TIME
-    timeBusyCollision = expectedPropagationDelay(network)+DIFS+averageTransmissionDelay(RTS, network, interferingAp)
-    timeBusySuccessful = averageTransmissionDelay(RTS, network, interferingAp)+averageTransmissionDelay(CTS, network, interferingAp)+averageTransmissionDelay(ACK, network, interferingAp)+averageTransmissionDelay(expectedPayload, network, interferingAp)+4*expectedPropagationDelay(network)+3*SIFS+DIFS
+    timeBusyCollision = expectedPropagationDelay(network)+DIFS+normalisedTransmissionDelay(RTS, network, interferingAp)
+    timeBusySuccessful = normalisedTransmissionDelay(RTS, network, interferingAp)+normalisedTransmissionDelay(CTS, network, interferingAp)+normalisedTransmissionDelay(ACK, network, interferingAp)+normalisedTransmissionDelay(expectedPayload, network, interferingAp)+4*expectedPropagationDelay(network)+3*SIFS+DIFS
     isRouterCochannel = isCochannelInterference(interferingAp, network.accessPoint, WHITE_NOISE)
     pExactlyOneTransmission = probabilityOfExactlyOneTransmission(k,n,tauM,tauR1,tauR2, isRouterCochannel)
     pAtLeastOneTransmission = 1- (power(1-tauM,n)*(1-tauR1))
     pSuccessfulTransmission = pExactlyOneTransmission / pAtLeastOneTransmission
     #Capacity - probability of successful transmission * expected payload over slot time
-    return pSuccessfulTransmission*pAtLeastOneTransmission*expectedPayload /    \
+    return pSuccessfulTransmission*pAtLeastOneTransmission*normalisedTransmissionDelay(expectedPayload, network, interferingAp) /    \
         ( (1-pAtLeastOneTransmission)*emptySlotTime + \
         pAtLeastOneTransmission*pSuccessfulTransmission*timeBusySuccessful+ \
         pAtLeastOneTransmission*(1-pSuccessfulTransmission)*timeBusyCollision)
@@ -186,20 +191,28 @@ def getAverageDataRate20MHZ(network, interferingAP):
             mcs=7
         dataRate+=MCSToDataRateSwitcher.get(mcs, 65)
     return dataRate/len(network.mobileStations)
-    
 def tempPowerIncrementing(network1, network2):
     #just a temporary function to see how changing interfering AP power affects the model
     powList = []
-    capList = []
+    normCapList = []
     dataRateList = []
-
-    for i in range (0,20):
+    capList = []
+    for i in range (0,40):
        # print "Interfering AP power: ", network2.accessPoint.p
         powList.append(network2.accessPoint.p)
-        capList.append(networkCapacity(network1, network2.accessPoint, TAU_R1, TAU_M, TAU_R2, EXPECTED_PACKET_SIZE))
-        dataRateList.append(getAverageDataRate20MHZ(network1, network2.accessPoint))
+        cap=normalisedNetworkCapacity(network1, network2.accessPoint, TAU_R1, TAU_M, TAU_R2, EXPECTED_PACKET_SIZE)
+        normCapList.append(cap)
+        dr=getAverageDataRate20MHZ(network1, network2.accessPoint)
+        dataRateList.append(dr)
+        capList.append(dr*cap)
         network2.accessPoint.p=network2.accessPoint.p + POWER_INCREMENT
-    plt.plot(powList, dataRateList,'r')
+        
+        
+    plt.plot(powList, normCapList,'r')
+    plt.show()
+    plt.plot(powList, dataRateList,'b')
+    plt.show()
+    plt.plot(powList, capList,'g')
     plt.show()
     
 def newApPower(network, interferingAp):
