@@ -17,9 +17,21 @@ class MobileStation:
         self.q = q
         
 class Network:
-    def __init__(self, accessPoint, mobileStations):
-        self.accessPoint = accessPoint
-        self.mobileStations = mobileStations
+    def __init__(self, xOffset, yOffset, numStations):
+        self.xOffset = xOffset
+        self.yOffset = yOffset
+        apX = self.xOffset + random.random() * FLAT_WIDTH
+        apY = self.yOffset + random.random() * FLAT_LENGTH
+        self.accessPoint = AccessPoint(apX, apY, AP_INITIAL_POWER, AP_PROBABILITY_OF_NONEMPTY_BUFFER)
+        self.mobileStations = []
+        self.addRandomMobileStations(numStations)        
+    
+    def addRandomMobileStations(self, numStations):
+        for i in range(numStations):
+            x = self.xOffset + random.random() * FLAT_WIDTH
+            y = self.yOffset + random.random() * FLAT_LENGTH
+            ms = MobileStation(x,y,MS_INITIAL_POWER, MS_PROBABILITY_OF_NONEMPTY_BUFFER)
+            self.mobileStations.append(ms)
 
 
 NUMBER_OF_STATIONS = 10
@@ -32,8 +44,8 @@ POWER_INCREMENT = 0.01
 SINR_FLOOR = 3
 WHITE_NOISE = 7.9e-11
 
-MS_PROBABILITY_OF_NONEMPTY_BUFFER=0.1
-AP_PROBABILITY_OF_NONEMPTY_BUFFER=0.7
+MS_PROBABILITY_OF_NONEMPTY_BUFFER=0.7
+AP_PROBABILITY_OF_NONEMPTY_BUFFER=0.97
 CW_MIN = 16
 
 C=3e8
@@ -51,18 +63,6 @@ RTS = 20
 CTS = 14
 ACK = 14
 EXPECTED_PACKET_SIZE = 2500 #guesswork, typically needs to be >2347 for RTS/CTS
-#Place an AP and n mobile stations at random positions in a 8x8 flat
-def createNetwork(xOffset, yOffset, numStations):
-    apX = xOffset + random.random() * FLAT_WIDTH
-    apY = yOffset + random.random() * FLAT_LENGTH
-    ap = AccessPoint(apX, apY, AP_INITIAL_POWER, AP_PROBABILITY_OF_NONEMPTY_BUFFER)
-    stations = []
-    for i in range(numStations):
-        msX = xOffset + random.random() * FLAT_WIDTH
-        msY = yOffset + random.random() * FLAT_LENGTH
-        ms = MobileStation(msX, msY, MS_INITIAL_POWER, MS_PROBABILITY_OF_NONEMPTY_BUFFER)
-        stations.append(ms)
-    return Network(ap, stations)
     
 def distance(node1, node2):
   return sqrt((node1.x-node2.x)**2 + (node1.y-node2.y)**2)  
@@ -120,6 +120,7 @@ def probabilityOfExactlyOneTransmission(network, interferingNetwork):
         tauJs = map(lambda s: estimateTransmissionProbability(CW_MIN, s.q), allCochannelStations)
         pSuccessfulTransmissionI = tauI * product(map(lambda tauJ: 1-tauJ, tauJs))
         pSuccessfulTransmissions.append(pSuccessfulTransmissionI)
+     #   print tauJs
     return sum(pSuccessfulTransmissions)
         
         
@@ -205,54 +206,83 @@ def getAverageDataRate20MHZ(network, interferingAP):
     
 def tempPowerIncrementing(network1, network2):
     #just a temporary function to see how changing interfering AP power affects the model
-    powList = []
+    powList1 = []
+    powList2 = []
+    time = []
     normCapList = []
     dataRateList = []
     capList = []
-    for i in range (0,40):
+    normCapList2 = []
+    dataRateList2 = []
+    capList2 = []
+    totalCapList = []
+    count = 0
+    for i in range (0,100):
        # print "Interfering AP power: ", network2.accessPoint.p
-        powList.append(network2.accessPoint.p)
+        time.append(count)
+        count=count+1
+#        powList.append(network2.accessPoint.p)
         cap=normalisedNetworkThroughput(network1, network2, EXPECTED_PACKET_SIZE)
+        cap2=normalisedNetworkThroughput(network2, network1, EXPECTED_PACKET_SIZE)
         normCapList.append(cap)
+        normCapList2.append(cap2)
         dr=getAverageDataRate20MHZ(network1, network2.accessPoint)
+        dr2=getAverageDataRate20MHZ(network2, network1.accessPoint)
         dataRateList.append(dr)
+        dataRateList2.append(dr2)
         capList.append(dr*cap)
-        network2.accessPoint.p=network2.accessPoint.p + POWER_INCREMENT
+        capList2.append(dr2*cap2)
+        totalCapList.append((dr*cap+dr2*cap2)/2)
+        powList1.append(network1.accessPoint.p)
+        powList2.append(network2.accessPoint.p)
+        network2.accessPoint.p=newApPower(network2, network1)
+        network1.accessPoint.p=newApPower(network1, network2)
+
         
-        
-    plt.plot(powList, normCapList,'r')
+    plt.plot(time, normCapList,'r', time, normCapList2, 'b')
     plt.show()
-    plt.plot(powList, dataRateList,'b')
+    plt.plot(time, dataRateList,'r', time, dataRateList2, 'b')
     plt.show()
-    plt.plot(powList, capList,'g')
+    plt.plot(time, powList1,'r', time, powList2, 'b')
     plt.show()
-    
-def newApPower(network, interferingAp):
-    lowest_sinr = min(map(lambda ms: sinr(network.accessPoint, ms, [interferingAp], WHITE_NOISE)), network.mobileStations)
+    plt.plot(time, capList,'r', time, capList2,'b', time, totalCapList,'g')
+    plt.show()
+
+def newApPower(network, interferingNetwork):
+    lowest_sinr = min(map(lambda ms: sinr(network.accessPoint, ms, allStations(interferingNetwork), WHITE_NOISE), network.mobileStations))
     if lowest_sinr < SINR_FLOOR:
         return network.accessPoint.p + POWER_INCREMENT
-    elif isCochannelInterference(network.accessPoint, interferingAp) and lowest_sinr > SINR_FLOOR + POWER_INCREMENT:
+    elif isCochannelInterference(network.accessPoint, interferingNetwork.accessPoint, WHITE_NOISE) and lowest_sinr > SINR_FLOOR + POWER_INCREMENT:
         return network.accessPoint.p - POWER_INCREMENT
     else:
         return network.accessPoint.p
 
     
-def main():
-    network1 = createNetwork(0, 0, 10)
-    network2 = createNetwork(16, 0, 10)
+def powerVariationSim():
+    network1 = Network(0, 0, NUMBER_OF_STATIONS)
+    network2 = Network(16, 0, NUMBER_OF_STATIONS)
     plotNetworks(network1, network2)
     
     mssWithCcIntf = filter(lambda s: isCochannelInterference(network2.accessPoint, s, WHITE_NOISE), network1.mobileStations)
     mssWithIcIntf = filter(lambda s: not isCochannelInterference(network2.accessPoint, s, WHITE_NOISE), network1.mobileStations)
     isRouterCochannel = isCochannelInterference(network2.accessPoint, network1.accessPoint, WHITE_NOISE)
     plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, network1.accessPoint)
-    
     tempPowerIncrementing(network1, network2)
-
-      
-     
+    
+def congestionPlot():
+    probList = []
+    xaxis = []
+    network1 = Network(0, 0, 0)
+    network2 = Network(16, 0, 0)
+    for i in range(40):
+        network1.addRandomMobileStations(2)
+        network2.addRandomMobileStations(2)
+        probList.append(probabilityOfExactlyOneTransmission(network1, network2))
+        xaxis.append(i*2)
+    plt.plot(xaxis, probList)
+    plt.show
         
-main()
+powerVariationSim()
 
 
 
