@@ -2,18 +2,19 @@ from numpy import *
 import matplotlib.pyplot as plt
 import random
 
-
 class AccessPoint:
-    def __init__(self,x,y,p):
+    def __init__(self, x, y, p, q):
         self.x = x
         self.y = y
         self.p = p
+        self.q = q
         
 class MobileStation:
-    def __init__(self,x,y,p):
+    def __init__(self, x, y, p, q):
         self.x = x
         self.y = y
         self.p = p
+        self.q = q
         
 class Network:
     def __init__(self, accessPoint, mobileStations):
@@ -31,9 +32,8 @@ POWER_INCREMENT = 0.01
 SINR_FLOOR = 3
 WHITE_NOISE = 7.9e-11
 
-Q_M=0.1
-Q_R1=0.7
-Q_R2=0.7
+MS_PROBABILITY_OF_NONEMPTY_BUFFER=0.1
+AP_PROBABILITY_OF_NONEMPTY_BUFFER=0.7
 CW_MIN = 16
 
 C=3e8
@@ -55,12 +55,12 @@ EXPECTED_PACKET_SIZE = 2500 #guesswork, typically needs to be >2347 for RTS/CTS
 def createNetwork(xOffset, yOffset, numStations):
     apX = xOffset + random.random() * FLAT_WIDTH
     apY = yOffset + random.random() * FLAT_LENGTH
-    ap = AccessPoint(apX, apY, AP_INITIAL_POWER)
+    ap = AccessPoint(apX, apY, AP_INITIAL_POWER, AP_PROBABILITY_OF_NONEMPTY_BUFFER)
     stations = []
     for i in range(numStations):
         msX = xOffset + random.random() * FLAT_WIDTH
         msY = yOffset + random.random() * FLAT_LENGTH
-        ms = MobileStation(msX, msY, MS_INITIAL_POWER)
+        ms = MobileStation(msX, msY, MS_INITIAL_POWER, MS_PROBABILITY_OF_NONEMPTY_BUFFER)
         stations.append(ms)
     return Network(ap, stations)
     
@@ -79,13 +79,7 @@ def pathLoss(d):
 def isCochannelInterference(interferingNode, receiver, whiteNoise):
     receivedPower = interferingNode.p * pathLoss(distance(interferingNode, receiver))
     return receivedPower > whiteNoise * SINR_FLOOR
-
-def stationsWithCochannelInterference(network, interferingAp):
-    return filter(lambda ms: isCochannelInterference(interferingAp, ms, WHITE_NOISE), network.mobileStations)
     
-def stationsWithInterchannelInterference(network, interferingAp):
-    return filter(lambda ms: not isCochannelInterference(interferingAp, ms, WHITE_NOISE), network.mobileStations)
-  
 # function calculates SINR for station
 def sinr(transmitter, receiver, interferingNodes, whiteNoise):  
   signalVolume = transmitter.p * pathLoss(distance(transmitter, receiver))
@@ -104,43 +98,51 @@ def averageTransmissionDelay(packet_size, network1, interferingAp):
     dataRate = getAverageDataRate20MHZ(network1, interferingAp)*1e6/8 #convert from mbits to bytes/s
     return packet_size/dataRate
  
-def normalisedTransmissionDelay(packet_size, network1, interferingAp):
+def normalisedTransmissionDelay(packet_size):
     dataRate = 65*1e6/8
     return packet_size/dataRate
 
-# Esti
-def estimateTransitionProbability(windowSize):
-    return 2.0 / (windowSize + 1)
+def estimateTransmissionProbability(windowSize, q):
+    tauSat = 2.0 / (windowSize + 1)
+    return tauSat * q
+
+def allStations(network):
+    return network.mobileStations + [network.accessPoint]
     
-def probabilityOfExactlyOneTransmission(k, n, tauM, tauR1, tauR2, isRouterCochannel):
-    if isRouterCochannel:
-        pRouterInterference = tauR2
-    else:
-        pRouterInterference = 0
-    return k*tauM*power(1-tauM,n-1)*(1-tauR1)*(1-tauR2)  \
-        + (n-k)*tauM*power(1-tauM,n-1)*(1-tauR1)    \
-        + tauR1*power(1-tauM,n)*(1-pRouterInterference)
+def probabilityOfExactlyOneTransmission(network, interferingNetwork):
+    stations = allStations(network)
+    pSuccessfulTransmissions = []
+    for station in stations:
+        tauI = estimateTransmissionProbability(CW_MIN, station.q)
+        otherStationsOnTheSameNetwork = filter(lambda s: s!=station, stations)
+        cochannelInterferingStations = filter(lambda s: isCochannelInterference(s, station, WHITE_NOISE), allStations(interferingNetwork))
+        allCochannelStations = otherStationsOnTheSameNetwork + cochannelInterferingStations
+        tauJs = map(lambda s: estimateTransmissionProbability(CW_MIN, s.q), allCochannelStations)
+        pSuccessfulTransmissionI = tauI * product(map(lambda tauJ: 1-tauJ, tauJs))
+        pSuccessfulTransmissions.append(pSuccessfulTransmissionI)
+    print(numCochannelIntfStations)
+    return sum(pSuccessfulTransmissions)
+        
+        
+def probabilityOfAtLeastOneTransmission(network):
+    stations = allStations(network)
+    taus = map(lambda station: estimateTransmissionProbability(CW_MIN, station.q), stations)
+    return 1 - product(map(lambda tau: 1-tau, taus))
     
-def normalisedNetworkThroughput(network, interferingAp, qM, qR1, qR2, expectedPayload):
-    k = len(stationsWithCochannelInterference(network, interferingAp))
-    n = len(network.mobileStations)
-    tauSat = estimateTransitionProbability(16)
-    tauM = qM * tauSat
-    tauR1 = qR1 * tauSat
-    tauR2 = qR2 * tauSat
+def normalisedNetworkThroughput(network, interferingNetwork, expectedPayload):
     #Assuming basic DCF with RTS/CTS with fixed packet sizes
     emptySlotTime = SLOT_TIME
-    timeBusyCollision = expectedPropagationDelay(network)+DIFS+normalisedTransmissionDelay(RTS, network, interferingAp)
-    timeBusySuccessful = normalisedTransmissionDelay(RTS, network, interferingAp)+normalisedTransmissionDelay(CTS, network, interferingAp)+normalisedTransmissionDelay(ACK, network, interferingAp)+normalisedTransmissionDelay(expectedPayload, network, interferingAp)+4*expectedPropagationDelay(network)+3*SIFS+DIFS
-    isRouterCochannel = isCochannelInterference(interferingAp, network.accessPoint, WHITE_NOISE)
-    pExactlyOneTransmission = probabilityOfExactlyOneTransmission(k,n,tauM,tauR1,tauR2, isRouterCochannel)
-    pAtLeastOneTransmission = 1- (power(1-tauM,n)*(1-tauR1))
+    timeBusyCollision = expectedPropagationDelay(network)+DIFS+normalisedTransmissionDelay(RTS)
+    timeBusySuccessful = normalisedTransmissionDelay(RTS)+normalisedTransmissionDelay(CTS)+normalisedTransmissionDelay(ACK)+normalisedTransmissionDelay(expectedPayload)+4*expectedPropagationDelay(network)+3*SIFS+DIFS
+    pExactlyOneTransmission = probabilityOfExactlyOneTransmission(network, interferingNetwork)
+    pAtLeastOneTransmission = probabilityOfAtLeastOneTransmission(network)
     pSuccessfulTransmission = pExactlyOneTransmission / pAtLeastOneTransmission
-    #Capacity - probability of successful transmission * expected payload over slot time
-    return pSuccessfulTransmission*pAtLeastOneTransmission*normalisedTransmissionDelay(expectedPayload, network, interferingAp) /    \
-        ( (1-pAtLeastOneTransmission)*emptySlotTime + \
+    averageSlotTime = ( (1-pAtLeastOneTransmission)*emptySlotTime + \
         pAtLeastOneTransmission*pSuccessfulTransmission*timeBusySuccessful+ \
         pAtLeastOneTransmission*(1-pSuccessfulTransmission)*timeBusyCollision)
+    #Capacity - probability of successful transmission * expected payload over slot time
+    return pSuccessfulTransmission*pAtLeastOneTransmission*normalisedTransmissionDelay(expectedPayload) / averageSlotTime
+        
 
 
 def plotNodes(nodes, colour):
@@ -211,7 +213,7 @@ def tempPowerIncrementing(network1, network2):
     for i in range (0,40):
        # print "Interfering AP power: ", network2.accessPoint.p
         powList.append(network2.accessPoint.p)
-        cap=normalisedNetworkThroughput(network1, network2.accessPoint, Q_M, Q_R1, Q_R2, EXPECTED_PACKET_SIZE)
+        cap=normalisedNetworkThroughput(network1, network2, EXPECTED_PACKET_SIZE)
         normCapList.append(cap)
         dr=getAverageDataRate20MHZ(network1, network2.accessPoint)
         dataRateList.append(dr)
@@ -241,8 +243,8 @@ def main():
     network2 = createNetwork(16, 0, 10)
     plotNetworks(network1, network2)
     
-    mssWithCcIntf = stationsWithCochannelInterference(network1, network2.accessPoint)    
-    mssWithIcIntf = stationsWithInterchannelInterference(network1, network2.accessPoint)
+    mssWithCcIntf = filter(lambda s: isCochannelInterference(network2.accessPoint, s, WHITE_NOISE), network1.mobileStations)
+    mssWithIcIntf = filter(lambda s: not isCochannelInterference(network2.accessPoint, s, WHITE_NOISE), network1.mobileStations)
     isRouterCochannel = isCochannelInterference(network2.accessPoint, network1.accessPoint, WHITE_NOISE)
     plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, network1.accessPoint)
     
