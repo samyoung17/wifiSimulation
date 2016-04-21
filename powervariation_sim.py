@@ -120,7 +120,6 @@ def probabilityOfExactlyOneTransmission(network, interferingNetwork):
         tauJs = map(lambda s: estimateTransmissionProbability(CW_MIN, s.q), allCochannelStations)
         pSuccessfulTransmissionI = tauI * product(map(lambda tauJ: 1-tauJ, tauJs))
         pSuccessfulTransmissions.append(pSuccessfulTransmissionI)
-    print(numCochannelIntfStations)
     return sum(pSuccessfulTransmissions)
         
         
