@@ -1,7 +1,12 @@
 from numpy import *
 import matplotlib.pyplot as plt
 import random
-
+class Memory:
+    def __init__(self):
+        self.maxCap=0
+        self.prevCap = 0
+        self.iteration=0
+        self.prevState=0
 class Station:
     def __init__(self, x, y, p, q, gr):
         self.x = x
@@ -9,7 +14,7 @@ class Station:
         self.p = p
         self.q = q
         self.gr = gr
-        
+        self.memory = Memory()
 class Network:
     def __init__(self, xOffset, yOffset, numStations):
         self.xOffset = xOffset
@@ -42,9 +47,9 @@ class Recording:
         
 
 
-NUMBER_OF_STATIONS = 15
-FLAT_WIDTH = 8
-FLAT_LENGTH = 8
+NUMBER_OF_STATIONS = 7
+FLAT_WIDTH = 5
+FLAT_LENGTH = 5
 AP_INITIAL_POWER = 0.1
 MS_INITIAL_POWER = 0.1
 POWER_INCREMENT = 0.01
@@ -227,7 +232,7 @@ def testPowerVariation(networks):
     for j in range(len(networks)):
         recordings.append(Recording())
 
-    for i in range(80):        
+    for i in range(140):        
         for j in range(len(networks)):
             otherNetworks = networks[:j] + networks[j+1:]
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
@@ -237,7 +242,7 @@ def testPowerVariation(networks):
         for j in range(len(networks)):
             otherNetworks = networks[:j] + networks[j+1:]
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
-            networks[j].accessPoint.p = newApPower(networks[j], stationsFromOtherNetworks)
+            networks[j].accessPoint.p = altNewApPower(networks[j], stationsFromOtherNetworks)
             networks[j].accessPoint.gr = newApGain(networks[j].accessPoint.p, AP_INITIAL_POWER)
         
     plotRecordings(recordings)
@@ -250,6 +255,47 @@ def newApPower(network, interferingStations):
     else:
         return network.accessPoint.p
 
+def altNewApPower(network, interferingStations):
+ #   return network.accessPoint.p + POWER_INCREMENT
+    #parameters
+    powerExponent = 0.3 #the larger this value the larger focus on minimizng power
+    capRatio = 2 # the lower this number, the more likely power increment, reducing this below 2 requires a large power exponent, otherwise power will keep increasing
+    S = normalisedNetworkThroughput(network, interferingStations, EXPECTED_PACKET_SIZE)
+    r = getAverageDataRate20MHZ(network, interferingStations)
+    cap=S*r
+#    cap=S*r
+    #first iteration of the algorithm
+    if network.accessPoint.memory.prevCap == 0:
+         network.accessPoint.memory.prevCap = cap
+         network.accessPoint.memory.maxCap = 50
+         network.accessPoint.memory.iterations = 1
+         return network.accessPoint.p + POWER_INCREMENT
+     #subsequent iterations
+    #update maximum capacity
+    if cap>network.accessPoint.memory.maxCap:
+        network.accessPoint.memory.maxCap = cap
+    #update number of iterations and power increment value (to ensure decay)
+    powerInc = POWER_INCREMENT * power(0.95, network.accessPoint.memory.iterations)
+    network.accessPoint.memory.iterations = network.accessPoint.memory.iterations +1
+#    if cap<((network.accessPoint.memory.prevCap+network.accessPoint.memory.maxCap)/capRatio or cap < network.accessPoint.memory.prevCap):
+    if cap<(network.accessPoint.memory.maxCap):
+        network.accessPoint.memory.maxCap= 0.97 * network.accessPoint.memory.maxCap
+        #capacity reduced
+        newApPower = network.accessPoint.p+powerInc
+    elif cap>network.accessPoint.memory.prevCap:
+        #capacity increased
+        newApPower = network.accessPoint.p-powerInc
+    else:
+        newApPower = network.accessPoint.p-powerInc
+  #      capacity unchanged
+    if newApPower>0.5:
+        newApPower = 0.5
+    elif newApPower<=0:
+        newApPower = 0.1
+                    
+    return newApPower
+    
+    
 def newApGain(newApPower, initialApPower):
     return newApPower / initialApPower
     
@@ -265,7 +311,7 @@ def powerVariationSim():
     ]
     plotNetworks(networks, FLAT_WIDTH * 5, FLAT_LENGTH * 3)
 
-    testPowerIncrementing(networks)
+    testPowerVariation(networks)
     
 def congestionPlot():
     probList = []
