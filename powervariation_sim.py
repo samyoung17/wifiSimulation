@@ -154,30 +154,16 @@ def normalisedNetworkThroughput(network, interferingNodes, expectedPayload):
         pAtLeastOneTransmission*(1-pSuccessfulTransmission)*timeBusyCollision)
     #Capacity - probability of successful transmission * expected payload over slot time
     return pSuccessfulTransmission*pAtLeastOneTransmission*normalisedTransmissionDelay(expectedPayload) / averageSlotTime
-        
 
-
-def plotNodes(nodes, colour):
-    plt.plot(map(lambda ms: ms.x, nodes), map(lambda ms: ms.y, nodes), colour)
     
-def plotNetworks(network1, network2):
-    plt.figure(figsize=(9, 3))
-    plotNodes(network1.mobileStations, 'ro')
-    plotNodes(network2.mobileStations, 'bo')
-    plotNodes([network1.accessPoint], 'gs')
-    plotNodes([network2.accessPoint], 'gs')
-    plt.axis([0, FLAT_WIDTH * 3, 0, FLAT_LENGTH])
-    plt.show()
-
-def plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, accessPoint):
-    plt.figure(figsize=(9, 3))
-    plotNodes(mssWithCcIntf, 'rs')
-    plotNodes(mssWithIcIntf, 'ro')
-    if isRouterCochannel:
-        plotNodes([accessPoint], 'gs')
-    else:
-        plotNodes([accessPoint], 'go')
-    plt.axis([0, FLAT_WIDTH * 3, 0, FLAT_LENGTH])
+def plotNetworks(networks, width, length):
+    graphWidth = 10.0
+    graphHeight = graphWidth * length / width
+    plt.figure(figsize=(graphWidth, graphHeight))
+    for network in networks:
+        plt.plot(map(lambda ms: ms.x, network.mobileStations), map(lambda ms: ms.y, network.mobileStations), 'bo')
+        plt.plot(network.accessPoint.x, network.accessPoint.y, 'rs')
+    plt.axis([0, width, 0, length])
     plt.show()
 
 def getAverageDataRate20MHZ(network, interferingNodes):
@@ -269,16 +255,17 @@ def newApGain(newApPower, initialApPower):
     
     
 def powerVariationSim():
-    network1 = Network(0, 0, NUMBER_OF_STATIONS)
-    network2 = Network(16, 0, NUMBER_OF_STATIONS)
-    plotNetworks(network1, network2)
-    
-    mssWithCcIntf = filter(lambda s: isCochannelInterference(network2.accessPoint, s, WHITE_NOISE), network1.mobileStations)
-    mssWithIcIntf = filter(lambda s: not isCochannelInterference(network2.accessPoint, s, WHITE_NOISE), network1.mobileStations)
-    isRouterCochannel = isCochannelInterference(network2.accessPoint, network1.accessPoint, WHITE_NOISE)
-    plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, network1.accessPoint)
-    
-    testPowerIncrementing([network1, network2])
+    networks = [
+        Network(0, 0, NUMBER_OF_STATIONS),
+        Network(16, 0, NUMBER_OF_STATIONS),
+        Network(32, 0, NUMBER_OF_STATIONS),
+        Network(0, 16, NUMBER_OF_STATIONS),
+        Network(16, 16, NUMBER_OF_STATIONS),
+        Network(32, 16, NUMBER_OF_STATIONS)
+    ]
+    plotNetworks(networks, FLAT_WIDTH * 5, FLAT_LENGTH * 3)
+
+    testPowerIncrementing(networks)
     
 def congestionPlot():
     probList = []
