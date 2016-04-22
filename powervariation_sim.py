@@ -27,6 +27,20 @@ class Network:
             ms = Station(x,y,MS_INITIAL_POWER, MS_PROBABILITY_OF_NONEMPTY_BUFFER, UNITY_GAIN)
             self.mobileStations.append(ms)
 
+class Recording:
+    def __init__(self):
+        self.apPower = []
+        self.apGain = []
+        self.normalisedThroughput = []        
+        self.dataRate = []
+        
+    def addDataPoint(self, p, gr, S, r):
+        self.apPower.append(p)
+        self.apGain.append(gr)
+        self.normalisedThroughput.append(S)
+        self.dataRate.append(r)
+        
+
 
 NUMBER_OF_STATIONS = 15
 FLAT_WIDTH = 8
@@ -92,11 +106,7 @@ def expectedPropagationDelay(network):
         d=distance(network.accessPoint, network.mobileStations[i])
         delay+=d/C
     return delay/len(network.mobileStations)
-    
-def averageTransmissionDelay(packet_size, network1, interferingAp):
-    dataRate = getAverageDataRate20MHZ(network1, interferingAp)*1e6/8 #convert from mbits to bytes/s
-    return packet_size/dataRate
- 
+
 def normalisedTransmissionDelay(packet_size):
     dataRate = 65*1e6/8
     return packet_size/dataRate
@@ -108,14 +118,14 @@ def estimateTransmissionProbability(windowSize, q):
 def allStations(network):
     return network.mobileStations + [network.accessPoint]
     
-def probabilityOfExactlyOneTransmission(network, interferingNetwork):
+def probabilityOfExactlyOneTransmission(network, interferingNodes):
     stations = allStations(network)
     pSuccessfulTransmissions = []
     numsCochannelStations = []
     for station in stations:
         tauI = estimateTransmissionProbability(CW_MIN, station.q)
         otherStationsOnTheSameNetwork = filter(lambda s: s!=station, stations)
-        cochannelInterferingStations = filter(lambda s: isCochannelInterference(s, station, WHITE_NOISE), allStations(interferingNetwork))
+        cochannelInterferingStations = filter(lambda s: isCochannelInterference(s, station, WHITE_NOISE), interferingNodes)
         numsCochannelStations.append(len(cochannelInterferingStations))
         allCochannelStations = otherStationsOnTheSameNetwork + cochannelInterferingStations
         tauJs = map(lambda s: estimateTransmissionProbability(CW_MIN, s.q), allCochannelStations)
@@ -131,12 +141,12 @@ def probabilityOfAtLeastOneTransmission(network):
     taus = map(lambda station: estimateTransmissionProbability(CW_MIN, station.q), stations)
     return 1 - product(map(lambda tau: 1-tau, taus))
     
-def normalisedNetworkThroughput(network, interferingNetwork, expectedPayload):
+def normalisedNetworkThroughput(network, interferingNodes, expectedPayload):
     #Assuming basic DCF with RTS/CTS with fixed packet sizes
     emptySlotTime = SLOT_TIME
     timeBusyCollision = expectedPropagationDelay(network)+DIFS+normalisedTransmissionDelay(RTS)
     timeBusySuccessful = normalisedTransmissionDelay(RTS)+normalisedTransmissionDelay(CTS)+normalisedTransmissionDelay(ACK)+normalisedTransmissionDelay(expectedPayload)+4*expectedPropagationDelay(network)+3*SIFS+DIFS
-    pExactlyOneTransmission = probabilityOfExactlyOneTransmission(network, interferingNetwork)
+    pExactlyOneTransmission = probabilityOfExactlyOneTransmission(network, interferingNodes)
     pAtLeastOneTransmission = probabilityOfAtLeastOneTransmission(network)
     pSuccessfulTransmission = pExactlyOneTransmission / pAtLeastOneTransmission
     averageSlotTime = ( (1-pAtLeastOneTransmission)*emptySlotTime + \
@@ -170,7 +180,7 @@ def plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, accessPoin
     plt.axis([0, FLAT_WIDTH * 3, 0, FLAT_LENGTH])
     plt.show()
 
-def getAverageDataRate20MHZ(network, interferingAP):
+def getAverageDataRate20MHZ(network, interferingNodes):
     dataRate=0
     MCSToDataRateSwitcher = {
         00: 0,
@@ -183,8 +193,9 @@ def getAverageDataRate20MHZ(network, interferingAP):
         6: 58.5,
         7: 65
     }
-    for i in range(len(network.mobileStations)):
-        snr=sinr(network.accessPoint, network.mobileStations[i], [interferingAP], WHITE_NOISE)
+    for station in network.mobileStations:
+        interchannelInterferingNodes = filter(lambda s: not isCochannelInterference(s, station, WHITE_NOISE), interferingNodes)
+        snr=sinr(network.accessPoint, station, interchannelInterferingNodes, WHITE_NOISE)
         if snr<3:
             mcs=00;
         elif snr<5:
@@ -208,46 +219,35 @@ def getAverageDataRate20MHZ(network, interferingAP):
     
 def tempPowerIncrementing(network1, network2):
     #just a temporary function to see how changing interfering AP power affects the model
-    powList1 = []
-    powList2 = []
+    recording1 = Recording()
+    recording2 = Recording()
+    recordings = [recording1, recording2]
     time = []
-    normCapList = []
-    dataRateList = []
-    capList = []
-    normCapList2 = []
-    dataRateList2 = []
-    capList2 = []
-    totalCapList = []
 
     for i in range(80):
         time.append(i)
-        cap=normalisedNetworkThroughput(network1, network2, EXPECTED_PACKET_SIZE)
-        cap2=normalisedNetworkThroughput(network2, network1, EXPECTED_PACKET_SIZE)
-        normCapList.append(cap)
-        normCapList2.append(cap2)
-        dr=getAverageDataRate20MHZ(network1, network2.accessPoint)
-        dr2=getAverageDataRate20MHZ(network2, network1.accessPoint)
-        dataRateList.append(dr)
-        dataRateList2.append(dr2)
-        capList.append(dr*cap)
-        capList2.append(dr2*cap2)
-        totalCapList.append((dr*cap+dr2*cap2)/2)
-        powList1.append(network1.accessPoint.p)
-        powList2.append(network2.accessPoint.p)
+        
+        S = normalisedNetworkThroughput(network1, allStations(network2), EXPECTED_PACKET_SIZE)
+        r = getAverageDataRate20MHZ(network1, allStations(network2))
+        recording1.addDataPoint(network1.accessPoint.p, network1.accessPoint.gr, S, r)
+        
+        S = normalisedNetworkThroughput(network2, allStations(network1), EXPECTED_PACKET_SIZE)
+        r = getAverageDataRate20MHZ(network2, allStations(network1))
+        recording2.addDataPoint(network2.accessPoint.p, network2.accessPoint.gr, S, r)
+        
         network1.accessPoint.p = newApPower(network1, network2)
         network1.accessPoint.gr = newApGain(network1.accessPoint.p, AP_INITIAL_POWER)
         network2.accessPoint.p = newApPower(network2, network1)
         network2.accessPoint.gr = newApGain(network2.accessPoint.p, AP_INITIAL_POWER)
         
-
-        
-    plt.plot(time, normCapList,'r', time, normCapList2, 'b')
+    plt.plot(time, recording1.normalisedThroughput,'r', time, recording2.normalisedThroughput, 'b')
     plt.show()
-    plt.plot(time, dataRateList,'r', time, dataRateList2, 'b')
+    plt.plot(time, recording1.dataRate,'r', time, recording2.dataRate, 'b')
     plt.show()
-    plt.plot(time, powList1,'r', time, powList2, 'b')
+    plt.plot(time, recording1.apPower,'r', time, recording2.apPower, 'b')
     plt.show()
-    plt.plot(time, capList,'r', time, capList2,'b', time, totalCapList,'g')
+    plt.plot(time, multiply(recording1.dataRate, recording1.normalisedThroughput), 'r', \
+             time, multiply(recording2.dataRate, recording2.normalisedThroughput), 'b')
     plt.show()
 
 def newApPower(network, interferingNetwork):
@@ -283,7 +283,7 @@ def congestionPlot():
     for i in range(40):
         network1.addRandomMobileStations(2)
         network2.addRandomMobileStations(2)
-        probList.append(probabilityOfExactlyOneTransmission(network1, network2))
+        probList.append(probabilityOfExactlyOneTransmission(network1, allStations(network2)))
         xaxis.append(i*2)
     plt.plot(xaxis, probList)
     plt.show
