@@ -11,11 +11,11 @@ class Station:
         self.gr = gr
         
 class Network:
-    def __init__(self, xOffset, yOffset, numStations):
+    def __init__(self, xOffset, yOffset, width, length, numStations):
         self.xOffset = xOffset
         self.yOffset = yOffset
-        apX = self.xOffset + random.random() * FLAT_WIDTH
-        apY = self.yOffset + random.random() * FLAT_LENGTH
+        apX = self.xOffset + random.random() * width
+        apY = self.yOffset + random.random() * length
         self.accessPoint = Station(apX, apY, AP_INITIAL_POWER, AP_PROBABILITY_OF_NONEMPTY_BUFFER, UNITY_GAIN)
         self.mobileStations = []
         self.addRandomMobileStations(numStations)        
@@ -42,18 +42,15 @@ class Recording:
         
 
 
-NUMBER_OF_STATIONS = 10
-FLAT_WIDTH = 8
-FLAT_LENGTH = 8
 AP_INITIAL_POWER = 0.1
 MS_INITIAL_POWER = 0.1
-POWER_INCREMENT = 0.01
+POWER_INCREMENT = 0.05
 
 SINR_FLOOR = 3
 WHITE_NOISE = 7.9e-11
 UNITY_GAIN = 1
 
-MS_PROBABILITY_OF_NONEMPTY_BUFFER=0.7
+MS_PROBABILITY_OF_NONEMPTY_BUFFER=0.4
 AP_PROBABILITY_OF_NONEMPTY_BUFFER=0.97
 CW_MIN = 16
 
@@ -95,10 +92,10 @@ def receivedInterferencePower(interferingNode, receiver, whiteNoise):
     
 # function calculates SINR for station
 def sinr(transmitter, receiver, interferingNodes, whiteNoise):  
-  signalVolume = transmitter.p * pathLoss(distance(transmitter, receiver))
-  interchannelInterferingNodes = filter(lambda node: not isCochannelInterference(node, receiver, whiteNoise), interferingNodes)
-  interferenceVolume = sum(map(lambda node: node.p * pathLoss(distance(node, receiver)), interchannelInterferingNodes))
-  return signalVolume * receiver.gr / (interferenceVolume * receiver.gr + whiteNoise)
+    signalVolume = transmitter.p * pathLoss(distance(transmitter, receiver))
+    interchannelInterferingNodes = filter(lambda node: not isCochannelInterference(node, receiver, whiteNoise), interferingNodes)
+    interferenceVolume = sum(map(lambda node: node.p * pathLoss(distance(node, receiver)), interchannelInterferingNodes))
+    return signalVolume * receiver.gr / (interferenceVolume * receiver.gr + whiteNoise)
 
 def expectedPropagationDelay(network):
     delay=0
@@ -225,7 +222,7 @@ def plotRecordings(recordings):
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
     plt.show()
 
-def testPowerVariation(networks):
+def testPowerVariation(networks, networksToPlot):
     #just a temporary function to see how changing interfering AP power affects the model
     recordings = []
     for j in range(len(networks)):
@@ -243,39 +240,42 @@ def testPowerVariation(networks):
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
             networks[j].accessPoint.p = newApPower(networks[j], stationsFromOtherNetworks)
             networks[j].accessPoint.gr = newApGain(networks[j].accessPoint.p, AP_INITIAL_POWER)
-        
-    plotRecordings(recordings)
+            
+    plotRecordings(map(lambda x: recordings[x], networksToPlot))
 
 def newApPower(network, interferingStations):
-    sinrs = map(lambda ms: sinr(network.accessPoint, ms, interferingStations, WHITE_NOISE), network.mobileStations)
-    lowest_sinr = min(sinrs)
-    if lowest_sinr < SINR_FLOOR:
-        return network.accessPoint.p + POWER_INCREMENT
-    else:
-        return network.accessPoint.p
+    return network.accessPoint.p + POWER_INCREMENT
+
 
 def newApGain(newApPower, initialApPower):
     return newApPower / initialApPower
     
     
 def powerVariationSim():
-    networks = [
-        Network(0, 0, NUMBER_OF_STATIONS),
-        Network(16, 0, NUMBER_OF_STATIONS),
-        Network(32, 0, NUMBER_OF_STATIONS),
-        Network(0, 16, NUMBER_OF_STATIONS),
-        Network(16, 16, NUMBER_OF_STATIONS),
-        Network(32, 16, NUMBER_OF_STATIONS)
-    ]
-    plotNetworks(networks, FLAT_WIDTH * 5, FLAT_LENGTH * 3)
+    a = 4
+    b = 4
+    width = 7
+    length = 7
+    xSpace = 10
+    ySpace = 10
+    n = 6
+    
+    networks = []
+    for i in range(a):
+        for j in range(b):
+            xOffset = i * (width + xSpace)
+            yOffset = j * (length + ySpace)
+            network = Network(xOffset, yOffset, width, length, n)
+            networks.append(network)
+    plotNetworks(networks, (width + xSpace) * a, (length + ySpace) * b)
 
-    testPowerVariation(networks)
+    testPowerVariation(networks, [5,6,9,10])
     
 def congestionPlot():
     probList = []
     xaxis = []
-    network1 = Network(0, 0, 0)
-    network2 = Network(16, 0, 0)
+    network1 = Network(0, 0, 8, 8, 0)
+    network2 = Network(16, 0, 8, 8, 0)
     for i in range(40):
         network1.addRandomMobileStations(2)
         network2.addRandomMobileStations(2)
