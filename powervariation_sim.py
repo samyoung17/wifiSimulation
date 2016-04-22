@@ -217,38 +217,42 @@ def getAverageDataRate20MHZ(network, interferingNodes):
         dataRate+=MCSToDataRateSwitcher.get(mcs, 65)
     return dataRate/len(network.mobileStations)
     
+def takeRecording(network, interferingStations, recording):
+    S = normalisedNetworkThroughput(network, interferingStations, EXPECTED_PACKET_SIZE)
+    r = getAverageDataRate20MHZ(network, interferingStations)
+    recording.addDataPoint(network.accessPoint.p, network.accessPoint.gr, S, r)
+
+def plotRecordings(recordings):
+    time = range(len(recordings[0].apPower))
+    for recording in recordings:
+        plt.plot(time, recording.normalisedThroughput)
+    plt.show()
+    for recording in recordings:
+        plt.plot(time, recording.dataRate)
+    plt.show()
+    for recording in recordings:
+        plt.plot(time, recording.apPower)
+    plt.show()
+    for recording in recordings:
+        plt.plot(time, multiply(recording.dataRate, recording.normalisedThroughput))
+    plt.show()
+
 def tempPowerIncrementing(network1, network2):
     #just a temporary function to see how changing interfering AP power affects the model
     recording1 = Recording()
     recording2 = Recording()
     recordings = [recording1, recording2]
-    time = []
 
-    for i in range(80):
-        time.append(i)
-        
-        S = normalisedNetworkThroughput(network1, allStations(network2), EXPECTED_PACKET_SIZE)
-        r = getAverageDataRate20MHZ(network1, allStations(network2))
-        recording1.addDataPoint(network1.accessPoint.p, network1.accessPoint.gr, S, r)
-        
-        S = normalisedNetworkThroughput(network2, allStations(network1), EXPECTED_PACKET_SIZE)
-        r = getAverageDataRate20MHZ(network2, allStations(network1))
-        recording2.addDataPoint(network2.accessPoint.p, network2.accessPoint.gr, S, r)
+    for i in range(80):        
+        takeRecording(network1, allStations(network2), recording1)
+        takeRecording(network2, allStations(network1), recording2)
         
         network1.accessPoint.p = newApPower(network1, network2)
         network1.accessPoint.gr = newApGain(network1.accessPoint.p, AP_INITIAL_POWER)
         network2.accessPoint.p = newApPower(network2, network1)
         network2.accessPoint.gr = newApGain(network2.accessPoint.p, AP_INITIAL_POWER)
         
-    plt.plot(time, recording1.normalisedThroughput,'r', time, recording2.normalisedThroughput, 'b')
-    plt.show()
-    plt.plot(time, recording1.dataRate,'r', time, recording2.dataRate, 'b')
-    plt.show()
-    plt.plot(time, recording1.apPower,'r', time, recording2.apPower, 'b')
-    plt.show()
-    plt.plot(time, multiply(recording1.dataRate, recording1.normalisedThroughput), 'r', \
-             time, multiply(recording2.dataRate, recording2.normalisedThroughput), 'b')
-    plt.show()
+    plotRecordings(recordings)
 
 def newApPower(network, interferingNetwork):
     sinrs = map(lambda ms: sinr(network.accessPoint, ms, allStations(interferingNetwork), WHITE_NOISE), network.mobileStations)
@@ -286,7 +290,7 @@ def congestionPlot():
         probList.append(probabilityOfExactlyOneTransmission(network1, allStations(network2)))
         xaxis.append(i*2)
     plt.plot(xaxis, probList)
-    plt.show
+    plt.show()
         
 congestionPlot()
 powerVariationSim()
