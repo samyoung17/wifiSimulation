@@ -42,7 +42,7 @@ class Recording:
         
 
 
-NUMBER_OF_STATIONS = 15
+NUMBER_OF_STATIONS = 10
 FLAT_WIDTH = 8
 FLAT_LENGTH = 8
 AP_INITIAL_POWER = 0.1
@@ -204,21 +204,25 @@ def getAverageDataRate20MHZ(network, interferingNodes):
 
 def plotRecordings(recordings):
     time = range(len(recordings[0].apPower))
-    for recording in recordings:
-        plt.plot(time, recording.normalisedThroughput)
+    for i, recording in enumerate(recordings):
+        plt.plot(time, recording.normalisedThroughput, label='N' + str(i))
     plt.title('Normalised throughput')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
     plt.show()
-    for recording in recordings:
-        plt.plot(time, recording.dataRate)
+    for i, recording in enumerate(recordings):
+        plt.plot(time, recording.dataRate, label='N' + str(i))
     plt.title('Data rate')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
     plt.show()
-    for recording in recordings:
-        plt.plot(time, recording.apPower)
+    for i, recording in enumerate(recordings):
+        plt.plot(time, recording.apPower, label='N' + str(i))
     plt.title('AP power')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
     plt.show()
-    for recording in recordings:
-        plt.plot(time, multiply(recording.dataRate, recording.normalisedThroughput))
+    for i, recording in enumerate(recordings):
+        plt.plot(time, multiply(recording.dataRate, recording.normalisedThroughput), label='N' + str(i))
     plt.title('Throughput')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
     plt.show()
 
 def testPowerVariation(networks):
