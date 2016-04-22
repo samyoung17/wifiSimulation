@@ -235,7 +235,7 @@ def plotRecordings(recordings):
     plt.title('Throughput')
     plt.show()
 
-def tempPowerIncrementing(networks):
+def testPowerVariation(networks):
     #just a temporary function to see how changing interfering AP power affects the model
     recordings = []
     for j in range(len(networks)):
@@ -248,18 +248,16 @@ def tempPowerIncrementing(networks):
             S = normalisedNetworkThroughput(networks[j], stationsFromOtherNetworks, EXPECTED_PACKET_SIZE)
             r = getAverageDataRate20MHZ(networks[j], stationsFromOtherNetworks)
             recordings[j].addDataPoint(networks[j].accessPoint.p, networks[j].accessPoint.gr, S, r)
-        
-        network1 = networks[0]
-        network2 = networks[1]
-        network1.accessPoint.p = newApPower(network1, network2)
-        network1.accessPoint.gr = newApGain(network1.accessPoint.p, AP_INITIAL_POWER)
-        network2.accessPoint.p = newApPower(network2, network1)
-        network2.accessPoint.gr = newApGain(network2.accessPoint.p, AP_INITIAL_POWER)
+        for j in range(len(networks)):
+            otherNetworks = networks[:j] + networks[j+1:]
+            stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
+            networks[j].accessPoint.p = newApPower(networks[j], stationsFromOtherNetworks)
+            networks[j].accessPoint.gr = newApGain(networks[j].accessPoint.p, AP_INITIAL_POWER)
         
     plotRecordings(recordings)
 
-def newApPower(network, interferingNetwork):
-    sinrs = map(lambda ms: sinr(network.accessPoint, ms, allStations(interferingNetwork), WHITE_NOISE), network.mobileStations)
+def newApPower(network, interferingStations):
+    sinrs = map(lambda ms: sinr(network.accessPoint, ms, interferingStations, WHITE_NOISE), network.mobileStations)
     lowest_sinr = min(sinrs)
     if lowest_sinr < SINR_FLOOR:
         return network.accessPoint.p + POWER_INCREMENT
@@ -279,7 +277,8 @@ def powerVariationSim():
     mssWithIcIntf = filter(lambda s: not isCochannelInterference(network2.accessPoint, s, WHITE_NOISE), network1.mobileStations)
     isRouterCochannel = isCochannelInterference(network2.accessPoint, network1.accessPoint, WHITE_NOISE)
     plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, network1.accessPoint)
-    tempPowerIncrementing([network1, network2])
+    
+    testPowerIncrementing([network1, network2])
     
 def congestionPlot():
     probList = []
