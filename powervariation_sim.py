@@ -269,7 +269,7 @@ def powerVariationSim():
     ]
     plotNetworks(networks, FLAT_WIDTH * 5, FLAT_LENGTH * 3)
 
-    testPowerIncrementing(networks)
+    testPowerVariation(networks)
     
 def congestionPlot():
     probList = []
