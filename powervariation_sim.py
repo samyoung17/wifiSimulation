@@ -11,14 +11,15 @@ class Station:
         self.gr = gr
         
 class Network:
-    def __init__(self, xOffset, yOffset, width, length, numStations):
+    def __init__(self, index, xOffset, yOffset, width, length, numStations):
+        self.index = index
         self.xOffset = xOffset
         self.yOffset = yOffset
         apX = self.xOffset + random.random() * width
         apY = self.yOffset + random.random() * length
         self.accessPoint = Station(apX, apY, AP_INITIAL_POWER, AP_PROBABILITY_OF_NONEMPTY_BUFFER, UNITY_GAIN)
         self.mobileStations = []
-        self.addRandomMobileStations(numStations)        
+        self.addRandomMobileStations(numStations)
     
     def addRandomMobileStations(self, numStations):
         for i in range(numStations):
@@ -28,7 +29,8 @@ class Network:
             self.mobileStations.append(ms)
 
 class Recording:
-    def __init__(self):
+    def __init__(self, index):
+        self.index = index
         self.apPower = []
         self.apGain = []
         self.normalisedThroughput = []        
@@ -201,32 +203,35 @@ def getAverageDataRate20MHZ(network, interferingNodes):
 
 def plotRecordings(recordings):
     time = range(len(recordings[0].apPower))
-    for i, recording in enumerate(recordings):
-        plt.plot(time, recording.normalisedThroughput, label='N' + str(i))
+    for recording in recordings:
+        plt.plot(time, recording.normalisedThroughput, label='N' + str(recording.index))
     plt.title('Normalised throughput')
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
     plt.show()
-    for i, recording in enumerate(recordings):
-        plt.plot(time, recording.dataRate, label='N' + str(i))
+    for recording in recordings:
+        plt.plot(time, recording.dataRate, label='N' + str(recording.index))
     plt.title('Data rate')
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
     plt.show()
-    for i, recording in enumerate(recordings):
-        plt.plot(time, recording.apPower, label='N' + str(i))
+    for recording in recordings:
+        plt.plot(time, recording.apPower, label='N' + str(recording.index))
     plt.title('AP power')
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
     plt.show()
-    for i, recording in enumerate(recordings):
-        plt.plot(time, multiply(recording.dataRate, recording.normalisedThroughput), label='N' + str(i))
+    for recording in recordings:
+        plt.plot(time, multiply(recording.dataRate, recording.normalisedThroughput), label='N' + str(recording.index))
     plt.title('Throughput')
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
     plt.show()
+    
+def inRange(number, r):
+    return number>= r[0] and number <= r[1]
 
-def testPowerVariation(networks, networksToPlot):
+def testPowerVariation(networks, iPlotRange, jPlotRange):
     #just a temporary function to see how changing interfering AP power affects the model
     recordings = []
-    for j in range(len(networks)):
-        recordings.append(Recording())
+    for network in networks:
+        recordings.append(Recording(network.index))
 
     for i in range(80):        
         for j in range(len(networks)):
@@ -240,8 +245,9 @@ def testPowerVariation(networks, networksToPlot):
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
             networks[j].accessPoint.p = newApPower(networks[j], stationsFromOtherNetworks)
             networks[j].accessPoint.gr = newApGain(networks[j].accessPoint.p, AP_INITIAL_POWER)
-            
-    plotRecordings(map(lambda x: recordings[x], networksToPlot))
+    
+    recordingsToPlot = filter(lambda r: inRange(r.index[0], iPlotRange) and inRange(r.index[1], jPlotRange), recordings)
+    plotRecordings(recordingsToPlot)
 
 def newApPower(network, interferingStations):
     return network.accessPoint.p + POWER_INCREMENT
@@ -253,11 +259,11 @@ def newApGain(newApPower, initialApPower):
     
 def powerVariationSim():
     a = 4
-    b = 4
+    b = 5
     width = 7
     length = 7
-    xSpace = 10
-    ySpace = 10
+    xSpace = 7
+    ySpace = 7
     n = 6
     
     networks = []
@@ -265,17 +271,17 @@ def powerVariationSim():
         for j in range(b):
             xOffset = i * (width + xSpace)
             yOffset = j * (length + ySpace)
-            network = Network(xOffset, yOffset, width, length, n)
+            network = Network((i,j), xOffset, yOffset, width, length, n)
             networks.append(network)
     plotNetworks(networks, (width + xSpace) * a, (length + ySpace) * b)
 
-    testPowerVariation(networks, [5,6,9,10])
+    testPowerVariation(networks, [1,2], [1,3])
     
 def congestionPlot():
     probList = []
     xaxis = []
-    network1 = Network(0, 0, 8, 8, 0)
-    network2 = Network(16, 0, 8, 8, 0)
+    network1 = Network((0,0), 0, 0, 8, 8, 0)
+    network2 = Network((1,0), 16, 0, 8, 8, 0)
     for i in range(40):
         network1.addRandomMobileStations(2)
         network2.addRandomMobileStations(2)
