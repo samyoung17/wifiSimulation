@@ -2,19 +2,13 @@ from numpy import *
 import matplotlib.pyplot as plt
 import random
 
-class AccessPoint:
-    def __init__(self, x, y, p, q):
+class Station:
+    def __init__(self, x, y, p, q, gr):
         self.x = x
         self.y = y
         self.p = p
         self.q = q
-        
-class MobileStation:
-    def __init__(self, x, y, p, q):
-        self.x = x
-        self.y = y
-        self.p = p
-        self.q = q
+        self.gr = gr
         
 class Network:
     def __init__(self, xOffset, yOffset, numStations):
@@ -22,7 +16,7 @@ class Network:
         self.yOffset = yOffset
         apX = self.xOffset + random.random() * FLAT_WIDTH
         apY = self.yOffset + random.random() * FLAT_LENGTH
-        self.accessPoint = AccessPoint(apX, apY, AP_INITIAL_POWER, AP_PROBABILITY_OF_NONEMPTY_BUFFER)
+        self.accessPoint = Station(apX, apY, AP_INITIAL_POWER, AP_PROBABILITY_OF_NONEMPTY_BUFFER, UNITY_GAIN)
         self.mobileStations = []
         self.addRandomMobileStations(numStations)        
     
@@ -30,11 +24,11 @@ class Network:
         for i in range(numStations):
             x = self.xOffset + random.random() * FLAT_WIDTH
             y = self.yOffset + random.random() * FLAT_LENGTH
-            ms = MobileStation(x,y,MS_INITIAL_POWER, MS_PROBABILITY_OF_NONEMPTY_BUFFER)
+            ms = Station(x,y,MS_INITIAL_POWER, MS_PROBABILITY_OF_NONEMPTY_BUFFER, UNITY_GAIN)
             self.mobileStations.append(ms)
 
 
-NUMBER_OF_STATIONS = 10
+NUMBER_OF_STATIONS = 15
 FLAT_WIDTH = 8
 FLAT_LENGTH = 8
 AP_INITIAL_POWER = 0.1
@@ -43,6 +37,7 @@ POWER_INCREMENT = 0.01
 
 SINR_FLOOR = 3
 WHITE_NOISE = 7.9e-11
+UNITY_GAIN = 1
 
 MS_PROBABILITY_OF_NONEMPTY_BUFFER=0.7
 AP_PROBABILITY_OF_NONEMPTY_BUFFER=0.97
@@ -78,14 +73,18 @@ def pathLoss(d):
 
 def isCochannelInterference(interferingNode, receiver, whiteNoise):
     receivedPower = interferingNode.p * pathLoss(distance(interferingNode, receiver))
-    return receivedPower > whiteNoise * SINR_FLOOR
+    return receivedPower * receiver.gr > whiteNoise * SINR_FLOOR
+    
+def receivedInterferencePower(interferingNode, receiver, whiteNoise):
+    receivedPower = interferingNode.p * pathLoss(distance(interferingNode, receiver))
+    return receivedPower * receiver.gr
     
 # function calculates SINR for station
 def sinr(transmitter, receiver, interferingNodes, whiteNoise):  
   signalVolume = transmitter.p * pathLoss(distance(transmitter, receiver))
   interchannelInterferingNodes = filter(lambda node: not isCochannelInterference(node, receiver, whiteNoise), interferingNodes)
   interferenceVolume = sum(map(lambda node: node.p * pathLoss(distance(node, receiver)), interchannelInterferingNodes))
-  return signalVolume / (interferenceVolume + whiteNoise)
+  return signalVolume * receiver.gr / (interferenceVolume * receiver.gr + whiteNoise)
 
 def expectedPropagationDelay(network):
     delay=0
@@ -112,15 +111,18 @@ def allStations(network):
 def probabilityOfExactlyOneTransmission(network, interferingNetwork):
     stations = allStations(network)
     pSuccessfulTransmissions = []
+    numsCochannelStations = []
     for station in stations:
         tauI = estimateTransmissionProbability(CW_MIN, station.q)
         otherStationsOnTheSameNetwork = filter(lambda s: s!=station, stations)
         cochannelInterferingStations = filter(lambda s: isCochannelInterference(s, station, WHITE_NOISE), allStations(interferingNetwork))
+        numsCochannelStations.append(len(cochannelInterferingStations))
         allCochannelStations = otherStationsOnTheSameNetwork + cochannelInterferingStations
         tauJs = map(lambda s: estimateTransmissionProbability(CW_MIN, s.q), allCochannelStations)
         pSuccessfulTransmissionI = tauI * product(map(lambda tauJ: 1-tauJ, tauJs))
         pSuccessfulTransmissions.append(pSuccessfulTransmissionI)
-     #   print tauJs
+        
+    #print(numsCochannelStations)
     return sum(pSuccessfulTransmissions)
         
         
@@ -216,12 +218,9 @@ def tempPowerIncrementing(network1, network2):
     dataRateList2 = []
     capList2 = []
     totalCapList = []
-    count = 0
-    for i in range (0,100):
-       # print "Interfering AP power: ", network2.accessPoint.p
-        time.append(count)
-        count=count+1
-#        powList.append(network2.accessPoint.p)
+
+    for i in range(80):
+        time.append(i)
         cap=normalisedNetworkThroughput(network1, network2, EXPECTED_PACKET_SIZE)
         cap2=normalisedNetworkThroughput(network2, network1, EXPECTED_PACKET_SIZE)
         normCapList.append(cap)
@@ -235,8 +234,11 @@ def tempPowerIncrementing(network1, network2):
         totalCapList.append((dr*cap+dr2*cap2)/2)
         powList1.append(network1.accessPoint.p)
         powList2.append(network2.accessPoint.p)
-        network2.accessPoint.p=newApPower(network2, network1)
-        network1.accessPoint.p=newApPower(network1, network2)
+        network1.accessPoint.p = newApPower(network1, network2)
+        network1.accessPoint.gr = newApGain(network1.accessPoint.p, AP_INITIAL_POWER)
+        network2.accessPoint.p = newApPower(network2, network1)
+        network2.accessPoint.gr = newApGain(network2.accessPoint.p, AP_INITIAL_POWER)
+        
 
         
     plt.plot(time, normCapList,'r', time, normCapList2, 'b')
@@ -249,7 +251,8 @@ def tempPowerIncrementing(network1, network2):
     plt.show()
 
 def newApPower(network, interferingNetwork):
-    lowest_sinr = min(map(lambda ms: sinr(network.accessPoint, ms, allStations(interferingNetwork), WHITE_NOISE), network.mobileStations))
+    sinrs = map(lambda ms: sinr(network.accessPoint, ms, allStations(interferingNetwork), WHITE_NOISE), network.mobileStations)
+    lowest_sinr = min(sinrs)
     if lowest_sinr < SINR_FLOOR:
         return network.accessPoint.p + POWER_INCREMENT
     elif isCochannelInterference(network.accessPoint, interferingNetwork.accessPoint, WHITE_NOISE) and lowest_sinr > SINR_FLOOR + POWER_INCREMENT:
@@ -257,6 +260,9 @@ def newApPower(network, interferingNetwork):
     else:
         return network.accessPoint.p
 
+def newApGain(newApPower, initialApPower):
+    return newApPower / initialApPower
+    
     
 def powerVariationSim():
     network1 = Network(0, 0, NUMBER_OF_STATIONS)
@@ -282,6 +288,7 @@ def congestionPlot():
     plt.plot(xaxis, probList)
     plt.show
         
+congestionPlot()
 powerVariationSim()
 
 
