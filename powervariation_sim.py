@@ -263,8 +263,6 @@ def newApPower(network, interferingNetwork):
     lowest_sinr = min(sinrs)
     if lowest_sinr < SINR_FLOOR:
         return network.accessPoint.p + POWER_INCREMENT
-    elif isCochannelInterference(network.accessPoint, interferingNetwork.accessPoint, WHITE_NOISE) and lowest_sinr > SINR_FLOOR + POWER_INCREMENT:
-        return network.accessPoint.p - POWER_INCREMENT
     else:
         return network.accessPoint.p
 
