@@ -194,8 +194,7 @@ def getAverageDataRate20MHZ(network, interferingNodes):
         7: 65
     }
     for station in network.mobileStations:
-        interchannelInterferingNodes = filter(lambda s: not isCochannelInterference(s, station, WHITE_NOISE), interferingNodes)
-        snr=sinr(network.accessPoint, station, interchannelInterferingNodes, WHITE_NOISE)
+        snr=sinr(network.accessPoint, station, interferingNodes, WHITE_NOISE)
         if snr<3:
             mcs=00;
         elif snr<5:
@@ -216,37 +215,42 @@ def getAverageDataRate20MHZ(network, interferingNodes):
             mcs=7
         dataRate+=MCSToDataRateSwitcher.get(mcs, 65)
     return dataRate/len(network.mobileStations)
-    
-def takeRecording(network, interferingStations, recording):
-    S = normalisedNetworkThroughput(network, interferingStations, EXPECTED_PACKET_SIZE)
-    r = getAverageDataRate20MHZ(network, interferingStations)
-    recording.addDataPoint(network.accessPoint.p, network.accessPoint.gr, S, r)
 
 def plotRecordings(recordings):
     time = range(len(recordings[0].apPower))
     for recording in recordings:
         plt.plot(time, recording.normalisedThroughput)
+    plt.title('Normalised throughput')
     plt.show()
     for recording in recordings:
         plt.plot(time, recording.dataRate)
+    plt.title('Data rate')
     plt.show()
     for recording in recordings:
         plt.plot(time, recording.apPower)
+    plt.title('AP power')
     plt.show()
     for recording in recordings:
         plt.plot(time, multiply(recording.dataRate, recording.normalisedThroughput))
+    plt.title('Throughput')
     plt.show()
 
-def tempPowerIncrementing(network1, network2):
+def tempPowerIncrementing(networks):
     #just a temporary function to see how changing interfering AP power affects the model
-    recording1 = Recording()
-    recording2 = Recording()
-    recordings = [recording1, recording2]
+    recordings = []
+    for j in range(len(networks)):
+        recordings.append(Recording())
 
     for i in range(80):        
-        takeRecording(network1, allStations(network2), recording1)
-        takeRecording(network2, allStations(network1), recording2)
+        for j in range(len(networks)):
+            otherNetworks = networks[:j] + networks[j+1:]
+            stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
+            S = normalisedNetworkThroughput(networks[j], stationsFromOtherNetworks, EXPECTED_PACKET_SIZE)
+            r = getAverageDataRate20MHZ(networks[j], stationsFromOtherNetworks)
+            recordings[j].addDataPoint(networks[j].accessPoint.p, networks[j].accessPoint.gr, S, r)
         
+        network1 = networks[0]
+        network2 = networks[1]
         network1.accessPoint.p = newApPower(network1, network2)
         network1.accessPoint.gr = newApGain(network1.accessPoint.p, AP_INITIAL_POWER)
         network2.accessPoint.p = newApPower(network2, network1)
@@ -277,7 +281,7 @@ def powerVariationSim():
     mssWithIcIntf = filter(lambda s: not isCochannelInterference(network2.accessPoint, s, WHITE_NOISE), network1.mobileStations)
     isRouterCochannel = isCochannelInterference(network2.accessPoint, network1.accessPoint, WHITE_NOISE)
     plotInterference(mssWithCcIntf, mssWithIcIntf, isRouterCochannel, network1.accessPoint)
-    tempPowerIncrementing(network1, network2)
+    tempPowerIncrementing([network1, network2])
     
 def congestionPlot():
     probList = []
