@@ -221,10 +221,12 @@ def plotRecordings(recordings):
         plt.plot(time, recording.apPower)
     plt.title('AP power')
     plt.show()
+
     for recording in recordings:
         plt.plot(time, multiply(recording.dataRate, recording.normalisedThroughput))
     plt.title('Throughput')
     plt.show()
+    
 
 def testPowerVariation(networks):
     #just a temporary function to see how changing interfering AP power affects the model
@@ -275,19 +277,25 @@ def altNewApPower(network, interferingStations):
     if cap>network.accessPoint.memory.maxCap:
         network.accessPoint.memory.maxCap = cap
     #update number of iterations and power increment value (to ensure decay)
-    powerInc = POWER_INCREMENT * power(0.95, network.accessPoint.memory.iterations)
+    powerInc = POWER_INCREMENT * power(0.9, network.accessPoint.memory.iterations)
     network.accessPoint.memory.iterations = network.accessPoint.memory.iterations +1
 #    if cap<((network.accessPoint.memory.prevCap+network.accessPoint.memory.maxCap)/capRatio or cap < network.accessPoint.memory.prevCap):
     if cap<(network.accessPoint.memory.maxCap):
         network.accessPoint.memory.maxCap= 0.97 * network.accessPoint.memory.maxCap
         #capacity reduced
         newApPower = network.accessPoint.p+powerInc
+        currentState=1
     elif cap>network.accessPoint.memory.prevCap:
         #capacity increased
         newApPower = network.accessPoint.p-powerInc
+        currentState=-1
     else:
         newApPower = network.accessPoint.p-powerInc
+        currentState=-1
   #      capacity unchanged
+    if currentState != network.accessPoint.memory.prevState and network.accessPoint.memory.iterations>40:
+        network.accessPoint.memory.prevState=currentState
+        network.accessPoint.memory.iterations=2
     if newApPower>0.5:
         newApPower = 0.5
     elif newApPower<=0:
