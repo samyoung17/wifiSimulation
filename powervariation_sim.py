@@ -2,6 +2,13 @@ from numpy import *
 import matplotlib.pyplot as plt
 import random
 
+class Memory:
+    def __init__(self):
+        self.maxCap=0
+        self.prevCap = 0
+        self.iteration=0
+        self.prevState=0
+        
 class Station:
     def __init__(self, x, y, p, q, gr):
         self.x = x
@@ -9,7 +16,7 @@ class Station:
         self.p = p
         self.q = q
         self.gr = gr
-        
+        self.memory = Memory()
 class Network:
     def __init__(self, index, xOffset, yOffset, width, length, numStations):
         self.index = index
@@ -226,14 +233,58 @@ def plotRecordings(recordings):
     
 def inRange(number, r):
     return number>= r[0] and number <= r[1]
+def testAlternativeSchemes(networks, recordings):
+    averagePowerAtEnd=0
+    maxPowerAtEnd=0
+    averageThroughputAtEnd=0
+    finalIndex=len(recordings[0].apPower)-1
+    for recording in recordings:
+        averagePowerAtEnd=averagePowerAtEnd+recording.apPower[finalIndex]
+        if recording.apPower[finalIndex]>maxPowerAtEnd:
+            maxPowerAtEnd = recording.apPower[finalIndex]
+        averageThroughputAtEnd=averageThroughputAtEnd+recording.normalisedThroughput[finalIndex]*recording.dataRate[finalIndex]
+    averagePowerAtEnd=averagePowerAtEnd/len(recordings)
+    averageThroughputAtEnd=averageThroughputAtEnd/len(recordings)
+    #test all APs set to averagePowerAtEnd
+    avgThroughputUsingAvgPower=0
+    avgThroughputUsingMaxPower=0
+    for j in range(len(networks)):
+          otherNetworks = networks[:j] + networks[j+1:]
+          stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
+          networks[j].accessPoint.p = averagePowerAtEnd
+          networks[j].accessPoint.gr = newApGain(networks[j].accessPoint.p, AP_INITIAL_POWER)
+    for j in range(len(networks)):
+        if inRange(networks[j].index[0],[1,2]) and inRange(networks[j].index[1],[1,3]):
+            otherNetworks = networks[:j] + networks[j+1:]
+            stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
+            avgThroughputUsingAvgPower = avgThroughputUsingAvgPower + normalisedNetworkThroughput(networks[j], stationsFromOtherNetworks, EXPECTED_PACKET_SIZE)*\
+            getAverageDataRate20MHZ(networks[j], stationsFromOtherNetworks)
+    avgThroughputUsingAvgPower=avgThroughputUsingAvgPower/len(networks)
 
+    for j in range(len(networks)):
+            otherNetworks = networks[:j] + networks[j+1:]
+            stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
+            networks[j].accessPoint.p = maxPowerAtEnd
+            networks[j].accessPoint.gr = newApGain(networks[j].accessPoint.p, AP_INITIAL_POWER)
+    for j in range(len(networks)):
+        if inRange(networks[j].index[0],[1,2]) and inRange(networks[j].index[1],[1,3]):
+            otherNetworks = networks[:j] + networks[j+1:]
+            stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
+            avgThroughputUsingMaxPower = avgThroughputUsingMaxPower + normalisedNetworkThroughput(networks[j], stationsFromOtherNetworks, EXPECTED_PACKET_SIZE)*\
+            getAverageDataRate20MHZ(networks[j], stationsFromOtherNetworks)
+    avgThroughputUsingMaxPower=avgThroughputUsingMaxPower/len(networks)
+    print "Average throughput (for the 6 central networks) using power mgmt algorithm:", averageThroughputAtEnd
+    print "Average throughput (for the 6 central networks) with all the APs using the average power from the power mgmt algorithm(",averagePowerAtEnd,"):", avgThroughputUsingAvgPower
+    print "Average throughput (for the 6 central networks) with all the APs using the maximum power from the power mgmt algorithm(",maxPowerAtEnd,"):", avgThroughputUsingMaxPower
+    print "Need to double check that the average throughput using average and max power is calculated for the correct stations, as the values seem somewhat too optimistic"
+        
 def testPowerVariation(networks, iPlotRange, jPlotRange):
     #just a temporary function to see how changing interfering AP power affects the model
     recordings = []
     for network in networks:
         recordings.append(Recording(network.index))
 
-    for i in range(80):        
+    for i in range(60):        
         for j in range(len(networks)):
             otherNetworks = networks[:j] + networks[j+1:]
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
@@ -248,11 +299,62 @@ def testPowerVariation(networks, iPlotRange, jPlotRange):
     
     recordingsToPlot = filter(lambda r: inRange(r.index[0], iPlotRange) and inRange(r.index[1], jPlotRange), recordings)
     plotRecordings(recordingsToPlot)
-
-def newApPower(network, interferingStations):
+    testAlternativeSchemes(networks, recordingsToPlot)
+    
+def oldnewApPower(network, interferingStations):
     return network.accessPoint.p + POWER_INCREMENT
+    
+def newApPower(network, interferingStations):
+    #parameters
+    powerGain=0.1 #temporary gain factor to avoid modifying global variables for now
+    powerExponent = 0.45 #the larger this value the larger focus on minimizng power
+    referencePowerDecay = 0.78
+    maxPower=0.7
+    maxPowerBackoff=0.6
+    referenceBackoffOnMaxPowerHit=0.8
+    minPower=0.05
+    S = normalisedNetworkThroughput(network, interferingStations, EXPECTED_PACKET_SIZE)
+    r = getAverageDataRate20MHZ(network, interferingStations)
+    cap=S*r/power(network.accessPoint.p,powerExponent)
+#    cap=S*r
+    #first iteration of the algorithm
+    if network.accessPoint.memory.prevCap == 0:
+         network.accessPoint.memory.prevCap = cap
+         network.accessPoint.memory.maxCap = cap+10
+         network.accessPoint.memory.iterations = 1
+         return network.accessPoint.p + POWER_INCREMENT
+     #subsequent iterations
+    #update maximum capacity
+    if cap>network.accessPoint.memory.maxCap:
+        network.accessPoint.memory.maxCap = cap
 
-
+#    if cap<((network.accessPoint.memory.prevCap+network.accessPoint.memory.maxCap)/capRatio or cap < network.accessPoint.memory.prevCap):
+    if cap<(network.accessPoint.memory.maxCap):
+        #reduce the reference power only if power has been increased for two consecutive cycles
+        if network.accessPoint.memory.prevState==1:
+            network.accessPoint.memory.maxCap= power( referencePowerDecay,  (network.accessPoint.memory.maxCap - cap)/ network.accessPoint.memory.maxCap ) * network.accessPoint.memory.maxCap
+        network.accessPoint.memory.prevState=1
+        powerInc = powerGain*abs((network.accessPoint.memory.maxCap-cap)/network.accessPoint.memory.maxCap)# * power(0.98, network.accessPoint.memory.iterations)
+        #capacity reduced
+        newApPower = network.accessPoint.p+powerInc
+    else:
+        network.accessPoint.memory.iterations = network.accessPoint.memory.iterations +1
+        powerInc = powerGain*power(0.7, network.accessPoint.memory.iterations)
+        network.accessPoint.memory.prevState=-1
+        newApPower = network.accessPoint.p-powerInc
+#resetting maximum capacity every n cycles - currently unused
+ #   if network.accessPoint.memory.iterations==25:
+  #      network.accessPoint.memory.iterations=5
+   #     network.accessPoint.memory.maxCap=cap*1.1
+  #      capacity unchanged
+    network.accessPoint.memory.prevCap=cap 
+    if newApPower>maxPower:
+        network.accessPoint.memory.prevState=0
+        newApPower = maxPowerBackoff
+        network.accessPoint.memory.maxCap=network.accessPoint.memory.maxCap*referenceBackoffOnMaxPowerHit
+    elif newApPower<=0:
+        newApPower = minPower                   
+    return newApPower
 def newApGain(newApPower, initialApPower):
     return newApPower / initialApPower
     
