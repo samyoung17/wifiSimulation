@@ -37,7 +37,7 @@ def plotRecordings(recordings):
 def setPowerLevelForAPs(networks, powerLevel):
     for j in range(len(networks)):
       networks[j].accessPoint.p = powerLevel
-      networks[j].accessPoint.gr = newApGain(networks[j].accessPoint.p, AP_INITIAL_POWER)
+      networks[j].accessPoint.snrFloor = newApSnrFloor(powerLevel)
 
 def findAverageThroughput(networks, iRange, jRange):
     networksInRange = filter(lambda n: inRange(n.index[0], iRange) and inRange(n.index[1], jRange), networks)
@@ -72,8 +72,6 @@ def testAlternativeSchemes(networks, recordings, iRange, jRange):
             averagePowerAtEnd,"):", avgThroughputUsingAvgPower
     print "Average throughput (for the 6 central networks) with all the APs using the maximum power from the power mgmt algorithm(",    \
             maxPowerAtEnd,"):", avgThroughputUsingMaxPower
-    print "Need to double check that the average throughput using average and max power is calculated for the correct stations"\
-            +", as the values seem somewhat too optimistic"
         
 def testPowerVariation(networks, iPlotRange, jPlotRange, numIterations):
     #just a temporary function to see how changing interfering AP power affects the model
@@ -92,7 +90,7 @@ def testPowerVariation(networks, iPlotRange, jPlotRange, numIterations):
             otherNetworks = networks[:j] + networks[j+1:]
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
             networks[j].accessPoint.p = newApPower(networks[j], stationsFromOtherNetworks)
-            networks[j].accessPoint.gr = newApGain(networks[j].accessPoint.p, AP_INITIAL_POWER)
+            networks[j].accessPoint.snrFloor = newApSnrFloor(networks[j].accessPoint.p)
     
     recordingsToPlot = filter(lambda r: inRange(r.index[0], iPlotRange) and inRange(r.index[1], jPlotRange), recordings)
     plotRecordings(recordingsToPlot)
@@ -155,8 +153,8 @@ def newApPower(network, interferingStations):
     return newApPower
     
 
-def newApGain(newApPower, initialApPower):
-    return newApPower / initialApPower
+def newApSnrFloor(newApPower):
+    return AP_INITIAL_SNR_FLOOR * newApPower / AP_INITIAL_POWER
     
     
 def powerVariationSim():

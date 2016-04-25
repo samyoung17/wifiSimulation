@@ -9,13 +9,14 @@ class Memory:
         self.prevState=0
         
 class Station:
-    def __init__(self, x, y, p, q, gr):
+    def __init__(self, x, y, p, q, gr, snrFloor):
         self.x = x
         self.y = y
         self.p = p
         self.q = q
         self.gr = gr
         self.memory = Memory()
+        self.snrFloor = snrFloor
 
 class Network:
     def __init__(self, index, xOffset, yOffset, width, length, numStations, seed=None):
@@ -28,7 +29,7 @@ class Network:
         self.yOffset = yOffset
         apX = self.xOffset + self.rGen.random() * width
         apY = self.yOffset + self.rGen.random() * length
-        self.accessPoint = Station(apX, apY, AP_INITIAL_POWER, AP_PROBABILITY_OF_NONEMPTY_BUFFER, UNITY_GAIN)
+        self.accessPoint = Station(apX, apY, AP_INITIAL_POWER, AP_PROBABILITY_OF_NONEMPTY_BUFFER, AP_GAIN, AP_INITIAL_SNR_FLOOR)
         self.mobileStations = []
         self.width=width
         self.length=length
@@ -38,7 +39,7 @@ class Network:
         for i in range(numStations):
             x = self.xOffset + self.rGen.random() * self.width
             y = self.yOffset + self.rGen.random() * self.length
-            ms = Station(x,y,MS_INITIAL_POWER, MS_PROBABILITY_OF_NONEMPTY_BUFFER, UNITY_GAIN)
+            ms = Station(x,y,MS_INITIAL_POWER, MS_PROBABILITY_OF_NONEMPTY_BUFFER, UNITY_GAIN, MS_INITIAL_SNR_FLOOR)
             self.mobileStations.append(ms)
 
 class Recording:
@@ -60,9 +61,11 @@ AP_INITIAL_POWER = 0.1
 MS_INITIAL_POWER = 0.1
 POWER_INCREMENT = 0.05
 
-SINR_FLOOR = 3
+AP_INITIAL_SNR_FLOOR = 20.0
+MS_INITIAL_SNR_FLOOR = 2.0
 WHITE_NOISE = 7.9e-11
 UNITY_GAIN = 1
+AP_GAIN = 10
 
 MS_PROBABILITY_OF_NONEMPTY_BUFFER=0.4
 AP_PROBABILITY_OF_NONEMPTY_BUFFER=0.97
@@ -98,7 +101,7 @@ def pathLoss(d):
 
 def isCochannelInterference(interferingNode, receiver, whiteNoise):
     receivedPower = interferingNode.p * pathLoss(distance(interferingNode, receiver))
-    return receivedPower * receiver.gr > whiteNoise * SINR_FLOOR
+    return receivedPower * receiver.gr > whiteNoise * receiver.snrFloor
     
 def receivedInterferencePower(interferingNode, receiver, whiteNoise):
     receivedPower = interferingNode.p * pathLoss(distance(interferingNode, receiver))
