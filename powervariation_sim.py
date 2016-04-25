@@ -231,38 +231,25 @@ def plotRecordings(recordings):
     plt.title('Throughput')
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
     plt.show()
+
+
     
-def findFinalValues(recordings, networks):
-    #Calculate the maximum power and the average power used by the APs with the power management algorithm 
-    #and find the corresponding average throughput after the algorithm has been run for n iterations 
-    averagePowerAtEnd=0
-    maxPowerAtEnd=0
-    averageThroughputAtEnd=0
-    finalIndex=len(recordings[0].apPower)-1
-    for recording in recordings:
-        averagePowerAtEnd=averagePowerAtEnd+recording.apPower[finalIndex]
-        if recording.apPower[finalIndex]>maxPowerAtEnd:
-            maxPowerAtEnd = recording.apPower[finalIndex]
-        averageThroughputAtEnd=averageThroughputAtEnd+recording.normalisedThroughput[finalIndex]*recording.dataRate[finalIndex]
-    averagePowerAtEnd=averagePowerAtEnd/len(recordings)
-    averageThroughputAtEnd=averageThroughputAtEnd/len(recordings)
-    return averagePowerAtEnd, averageThroughputAtEnd,maxPowerAtEnd
 
 def setPowerLevelForAPs(networks, powerLevel):
-     for j in range(len(networks)):
+    for j in range(len(networks)):
       networks[j].accessPoint.p = powerLevel
       networks[j].accessPoint.gr = newApGain(networks[j].accessPoint.p, AP_INITIAL_POWER)
 
 def findAverageThroughput(networks, iRange, jRange):
-    avgThroughput=0
-    for j in range(len(networks)):
-        if inRange(networks[j].index[0],iRange) and inRange(networks[j].index[1],jRange):
-            otherNetworks = networks[:j] + networks[j+1:]
-            stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
-            avgThroughput = avgThroughput + normalisedNetworkThroughput(networks[j], stationsFromOtherNetworks, EXPECTED_PACKET_SIZE)*\
-            getAverageDataRate20MHZ(networks[j], stationsFromOtherNetworks)
-    avgThroughput=avgThroughput/len(networks)
-    return avgThroughput
+    networksInRange = filter(lambda n: inRange(n.index[0], iRange) and inRange(n.index[1], jRange), networks)
+    throughputs = []
+    for network in networksInRange:
+        otherNetworks = filter(lambda n: n!= network, networks)
+        stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
+        throughput = normalisedNetworkThroughput(network, stationsFromOtherNetworks, EXPECTED_PACKET_SIZE)   \
+                        * getAverageDataRate20MHZ(network, stationsFromOtherNetworks)
+        throughputs.append(throughput)
+    return mean(throughputs)
     
 def testThroughputUsingPresetPower(networks, powerLevel, iRange, jRange):
     setPowerLevelForAPs(networks, powerLevel)
@@ -272,8 +259,11 @@ def inRange(number, r):
     return number>= r[0] and number <= r[1]
     
 def testAlternativeSchemes(networks, recordings, iRange, jRange):
-
-    averagePowerAtEnd, averageThroughputAtEnd,maxPowerAtEnd = findFinalValues(recordings, networks)
+    
+    recordingsInRange = filter(lambda r: inRange(r.index[0], iRange) and inRange(r.index[1], jRange), recordings)
+    averagePowerAtEnd = mean(map(lambda r: r.apPower, recordings))
+    averageThroughputAtEnd = mean(map(lambda r: r.normalisedThroughput[-1] * r.dataRate[-1], recordingsInRange))
+    maxPowerAtEnd = max(map(lambda r: r.apPower[-1], recordings))
     #Set all the APs to the average power value and test the average throughput at this point
     avgThroughputUsingAvgPower= testThroughputUsingPresetPower(networks, averagePowerAtEnd, iRange, jRange)
     avgThroughputUsingMaxPower = testThroughputUsingPresetPower(networks, maxPowerAtEnd, iRange, jRange)
@@ -299,7 +289,7 @@ def testPowerVariation(networks, iPlotRange, jPlotRange):
         for j in range(len(networks)):
             otherNetworks = networks[:j] + networks[j+1:]
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
-            networks[j].accessPoint.p = newApPower(networks[j], stationsFromOtherNetworks)
+            networks[j].accessPoint.p = oldnewApPower(networks[j], stationsFromOtherNetworks)
             networks[j].accessPoint.gr = newApGain(networks[j].accessPoint.p, AP_INITIAL_POWER)
     
     recordingsToPlot = filter(lambda r: inRange(r.index[0], iPlotRange) and inRange(r.index[1], jPlotRange), recordings)
@@ -398,7 +388,7 @@ def congestionPlot():
     plt.show()
         
 congestionPlot()
-#powerVariationSim()
+powerVariationSim()
 
 
 
