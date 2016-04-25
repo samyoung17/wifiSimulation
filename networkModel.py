@@ -101,7 +101,7 @@ def pathLoss(d):
 
 def isCochannelInterference(interferingNode, receiver, whiteNoise):
     receivedPower = interferingNode.p * pathLoss(distance(interferingNode, receiver))
-    return receivedPower * receiver.gr > whiteNoise * receiver.snrFloor
+    return receivedPower * receiver.gr / whiteNoise > receiver.snrFloor
     
 def receivedInterferencePower(interferingNode, receiver, whiteNoise):
     receivedPower = interferingNode.p * pathLoss(distance(interferingNode, receiver))
