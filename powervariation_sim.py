@@ -100,57 +100,26 @@ def oldnewApPower(network, interferingStations):
     return network.accessPoint.p + POWER_INCREMENT
     
 def newApPower(network, interferingStations):
-    #parameters
-    powerGain=0.15 #temporary gain factor to avoid modifying global variables for now
-    powerExponent = 0.4 #the larger this value the larger focus on minimizng power
-    referenceDecay = 0.8
-    maxPower=10
-    maxPowerBackoff=0.9
-    referenceBackoffOnMaxPowerHit=0.8
-    minPower=0.05
-    maxCycles=20
-    initialRef=65
-    powerDecay=0.7
+
+    c = 20
+    maxP = 1.0
+    minP = 0.1
+    
+    p = network.accessPoint.p
+    prevU = network.accessPoint.memory.prevUref
+    
     S = normalisedNetworkThroughput(network, interferingStations, EXPECTED_PACKET_SIZE)
     r = getAverageDataRate20MHZ(network, interferingStations)
-    U=S*r/power(network.accessPoint.p,powerExponent)
-    
-    ref = network.accessPoint.memory.uRef
-    #first iteration of the algorithm
-    if network.accessPoint.memory.prevUref == 0:
-         network.accessPoint.memory.prevUref = U
-         network.accessPoint.memory.uRef = initialRef
-         network.accessPoint.memory.iterations = 1
-     #subsequent iterations
-
-    if U<ref:
-        if network.accessPoint.memory.prevState==1:
-            #reduce reference only if power has been increased for two consecutive cycles
-            network.accessPoint.memory.uRef = power(referenceDecay, (ref-U)/ref) * ref
-        network.accessPoint.memory.prevState=1
-        powerInc = powerGain*(ref-U)/ref
-        #capacity reduced
-        newApPower = network.accessPoint.p+powerInc
-    
-    else:
-        network.accessPoint.memory.iterations = network.accessPoint.memory.iterations +1
-        powerInc = powerGain*power(powerDecay, network.accessPoint.memory.iterations)
-        network.accessPoint.memory.prevState=-1
-        newApPower = network.accessPoint.p-powerInc
+    y = S * r
         
-    #resetting maximum capacity every n cycles
-    if network.accessPoint.memory.iterations==maxCycles:
-        network.accessPoint.memory.iterations=3
-        network.accessPoint.memory.uRef=initialRef
-
-    if newApPower>maxPower:
-        newApPower = maxPowerBackoff
-        network.accessPoint.memory.uRef=ref*referenceBackoffOnMaxPowerHit
-        
-    elif newApPower<=0:
-        newApPower = minPower
-             
-    return newApPower
+    u = y - c * p
+    du = (u - prevU)
+    
+    newApPower = p * (1 + du / u)
+    
+    network.accessPoint.memory.prevUref = u 
+    
+    return max(min(newApPower, maxP), minP)
     
 
 def newApSnrFloor(newApPower):
@@ -166,7 +135,7 @@ def powerVariationSim():
     ySpace = 7
     n = 6
     isStandard = True
-    numIterations = 60
+    numIterations = 20
     
     networks = []
     for i in range(a):
