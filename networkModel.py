@@ -16,13 +16,18 @@ class Station:
         self.q = q
         self.gr = gr
         self.memory = Memory()
+
 class Network:
-    def __init__(self, index, xOffset, yOffset, width, length, numStations):
+    def __init__(self, index, xOffset, yOffset, width, length, numStations, seed=None):
+        if seed != None:
+            self.rGen = random.Random(seed)
+        else:
+            self.rGen = random.Random()
         self.index = index
         self.xOffset = xOffset
         self.yOffset = yOffset
-        apX = self.xOffset + random.random() * width
-        apY = self.yOffset + random.random() * length
+        apX = self.xOffset + self.rGen.random() * width
+        apY = self.yOffset + self.rGen.random() * length
         self.accessPoint = Station(apX, apY, AP_INITIAL_POWER, AP_PROBABILITY_OF_NONEMPTY_BUFFER, UNITY_GAIN)
         self.mobileStations = []
         self.width=width
@@ -31,8 +36,8 @@ class Network:
     
     def addRandomMobileStations(self, numStations):
         for i in range(numStations):
-            x = self.xOffset + random.random() * self.width
-            y = self.yOffset + random.random() * self.length
+            x = self.xOffset + self.rGen.random() * self.width
+            y = self.yOffset + self.rGen.random() * self.length
             ms = Station(x,y,MS_INITIAL_POWER, MS_PROBABILITY_OF_NONEMPTY_BUFFER, UNITY_GAIN)
             self.mobileStations.append(ms)
 

@@ -167,17 +167,21 @@ def powerVariationSim():
     xSpace = 7
     ySpace = 7
     n = 6
+    isStandard = True
     
     networks = []
     for i in range(a):
         for j in range(b):
             xOffset = i * (width + xSpace)
             yOffset = j * (length + ySpace)
-            network = Network((i,j), xOffset, yOffset, width, length, n)
+            if isStandard:
+                network = Network((i,j), xOffset, yOffset, width, length, n, seed = i*b + j)
+            else:
+                network = Network((i,j), xOffset, yOffset, width, length, n)
             networks.append(network)
     plotNetworks(networks, (width + xSpace) * a, (length + ySpace) * b)
 
-    testPowerVariation(networks, [1,2], [1,3])
+   # testPowerVariation(networks, [1,2], [1,3])
     
 def congestionPlot():
     probList = []
