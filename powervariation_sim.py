@@ -104,53 +104,54 @@ def oldnewApPower(network, interferingStations):
 def newApPower(network, interferingStations):
     #parameters
     powerGain=0.15 #temporary gain factor to avoid modifying global variables for now
-    powerExponent = 0.2 #the larger this value the larger focus on minimizng power
-    referencePowerDecay = 0.78
-    maxPower=1
+    powerExponent = 0.4 #the larger this value the larger focus on minimizng power
+    referenceDecay = 0.8
+    maxPower=10
     maxPowerBackoff=0.9
     referenceBackoffOnMaxPowerHit=0.8
     minPower=0.05
+    maxCycles=20
+    initialRef=65
+    powerDecay=0.7
     S = normalisedNetworkThroughput(network, interferingStations, EXPECTED_PACKET_SIZE)
     r = getAverageDataRate20MHZ(network, interferingStations)
-    cap=S*r/power(network.accessPoint.p,powerExponent)
-#    cap=S*r
+    U=S*r/power(network.accessPoint.p,powerExponent)
+    
+    ref = network.accessPoint.memory.uRef
     #first iteration of the algorithm
-    if network.accessPoint.memory.prevCap == 0:
-         network.accessPoint.memory.prevCap = cap
-         network.accessPoint.memory.maxCap = cap+15
+    if network.accessPoint.memory.prevUref == 0:
+         network.accessPoint.memory.prevUref = U
+         network.accessPoint.memory.uRef = initialRef
          network.accessPoint.memory.iterations = 1
-         return network.accessPoint.p + POWER_INCREMENT
      #subsequent iterations
-    #update maximum capacity
-    if cap>network.accessPoint.memory.maxCap:
-        network.accessPoint.memory.maxCap = cap
 
-#    if cap<((network.accessPoint.memory.prevCap+network.accessPoint.memory.maxCap)/capRatio or cap < network.accessPoint.memory.prevCap):
-    if cap<(network.accessPoint.memory.maxCap):
-        #reduce the reference power only if power has been increased for two consecutive cycles
+    if U<ref:
         if network.accessPoint.memory.prevState==1:
-            network.accessPoint.memory.maxCap= power( referencePowerDecay,  (network.accessPoint.memory.maxCap - cap)/ network.accessPoint.memory.maxCap ) * network.accessPoint.memory.maxCap
+            #reduce reference only if power has been increased for two consecutive cycles
+            network.accessPoint.memory.uRef = power(referenceDecay, (ref-U)/ref) * ref
         network.accessPoint.memory.prevState=1
-        powerInc = powerGain*abs((network.accessPoint.memory.maxCap-cap)/network.accessPoint.memory.maxCap)
+        powerInc = powerGain*(ref-U)/ref
         #capacity reduced
         newApPower = network.accessPoint.p+powerInc
+    
     else:
         network.accessPoint.memory.iterations = network.accessPoint.memory.iterations +1
-        powerInc = powerGain*power(0.7, network.accessPoint.memory.iterations)
+        powerInc = powerGain*power(powerDecay, network.accessPoint.memory.iterations)
         network.accessPoint.memory.prevState=-1
         newApPower = network.accessPoint.p-powerInc
-#resetting maximum capacity every n cycles - currently unused
-    if network.accessPoint.memory.iterations==20:
-        network.accessPoint.memory.iterations=5
-        network.accessPoint.memory.maxCap=cap*1.2
-  #      capacity unchanged
-    network.accessPoint.memory.prevCap=cap 
+        
+    #resetting maximum capacity every n cycles
+    if network.accessPoint.memory.iterations==maxCycles:
+        network.accessPoint.memory.iterations=3
+        network.accessPoint.memory.uRef=initialRef
+
     if newApPower>maxPower:
-        network.accessPoint.memory.prevState=0
         newApPower = maxPowerBackoff
-        network.accessPoint.memory.maxCap=network.accessPoint.memory.maxCap*referenceBackoffOnMaxPowerHit
+        network.accessPoint.memory.uRef=ref*referenceBackoffOnMaxPowerHit
+        
     elif newApPower<=0:
-        newApPower = minPower                   
+        newApPower = minPower
+             
     return newApPower
     
 

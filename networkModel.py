@@ -3,8 +3,8 @@ import random
 
 class Memory:
     def __init__(self):
-        self.maxCap=0
-        self.prevCap = 0
+        self.uRef=0
+        self.prevUref = 0
         self.iteration=0
         self.prevState=0
         
