@@ -13,29 +13,26 @@ def plotNetworks(networks, width, length):
     plt.axis([0, width, 0, length])
     plt.show()
 
+def plotTimeseries(timeseries, labels, title):
+    time = range(len(timeseries[0]))
+    for i in range(len(timeseries)):
+        plt.plot(time, timeseries[i], label=labels[i])
+    avg = mean(timeseries, axis = 0)
+    plt.plot(avg, label='Average', c='black', ls='--', lw=2)
+    plt.title(title)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
+    plt.show()  
 
 def plotRecordings(recordings):
-    time = range(len(recordings[0].apPower))
-    for recording in recordings:
-        plt.plot(time, recording.normalisedThroughput, label='N' + str(recording.index))
-    plt.title('Normalised throughput')
-    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
-    plt.show()
-    for recording in recordings:
-        plt.plot(time, recording.dataRate, label='N' + str(recording.index))
-    plt.title('Data rate')
-    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
-    plt.show()
-    for recording in recordings:
-        plt.plot(time, recording.apPower, label='N' + str(recording.index))
-    plt.title('AP power')
-    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
-    plt.show()
-    for recording in recordings:
-        plt.plot(time, multiply(recording.dataRate, recording.normalisedThroughput), label='N' + str(recording.index))
-    plt.title('Throughput')
-    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
-    plt.show()
+    normalisedThroughputTss = array(map(lambda r: r.normalisedThroughput, recordings))
+    dataRateTss = array(map(lambda r: r.dataRate, recordings))
+    apPowerTss = array(map(lambda r: r.apPower, recordings))
+    throughputTss = array(map(lambda r: multiply(r.dataRate, r.normalisedThroughput), recordings))        
+    labels = map(lambda r: 'Network' + str(r.index), recordings)    
+    plotTimeseries(normalisedThroughputTss, labels, 'Normalised Throughput')
+    plotTimeseries(dataRateTss, labels, 'Data Rate')
+    plotTimeseries(apPowerTss, labels, 'AP Power')
+    plotTimeseries(throughputTss, labels, 'Throughput')
 
 def setPowerLevelForAPs(networks, powerLevel):
     for j in range(len(networks)):
@@ -78,13 +75,13 @@ def testAlternativeSchemes(networks, recordings, iRange, jRange):
     print "Need to double check that the average throughput using average and max power is calculated for the correct stations"\
             +", as the values seem somewhat too optimistic"
         
-def testPowerVariation(networks, iPlotRange, jPlotRange):
+def testPowerVariation(networks, iPlotRange, jPlotRange, numIterations):
     #just a temporary function to see how changing interfering AP power affects the model
     recordings = []
     for network in networks:
         recordings.append(Recording(network.index))
 
-    for i in range(60):        
+    for i in range(numIterations):        
         for j in range(len(networks)):
             otherNetworks = networks[:j] + networks[j+1:]
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
@@ -155,6 +152,8 @@ def newApPower(network, interferingStations):
     elif newApPower<=0:
         newApPower = minPower                   
     return newApPower
+    
+
 def newApGain(newApPower, initialApPower):
     return newApPower / initialApPower
     
@@ -168,6 +167,7 @@ def powerVariationSim():
     ySpace = 7
     n = 6
     isStandard = True
+    numIterations = 60
     
     networks = []
     for i in range(a):
@@ -181,7 +181,7 @@ def powerVariationSim():
             networks.append(network)
     plotNetworks(networks, (width + xSpace) * a, (length + ySpace) * b)
 
-   # testPowerVariation(networks, [1,2], [1,3])
+    testPowerVariation(networks, [1,2], [1,3], numIterations)
     
 def congestionPlot():
     probList = []
