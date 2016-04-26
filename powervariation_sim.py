@@ -27,12 +27,14 @@ def plotRecordings(recordings):
     normalisedThroughputTss = array(map(lambda r: r.normalisedThroughput, recordings))
     dataRateTss = array(map(lambda r: r.dataRate, recordings))
     apPowerTss = array(map(lambda r: r.apPower, recordings))
-    throughputTss = array(map(lambda r: multiply(r.dataRate, r.normalisedThroughput), recordings))        
+    throughputTss = array(map(lambda r: multiply(r.dataRate, r.normalisedThroughput), recordings))      
+    utilityTss = array(map(lambda r: r.utility, recordings))
     labels = map(lambda r: 'Network' + str(r.index), recordings)    
     plotTimeseries(normalisedThroughputTss, labels, 'Normalised Throughput')
     plotTimeseries(dataRateTss, labels, 'Data Rate')
     plotTimeseries(apPowerTss, labels, 'AP Power')
     plotTimeseries(throughputTss, labels, 'Throughput')
+    plotTimeseries(utilityTss, labels, 'Utility')
 
 def setPowerLevelForAPs(networks, powerLevel):
     for j in range(len(networks)):
@@ -85,7 +87,8 @@ def testPowerVariation(networks, iPlotRange, jPlotRange, numIterations):
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
             S = normalisedNetworkThroughput(networks[j], stationsFromOtherNetworks, EXPECTED_PACKET_SIZE)
             r = getAverageDataRate20MHZ(networks[j], stationsFromOtherNetworks)
-            recordings[j].addDataPoint(networks[j].accessPoint.p, networks[j].accessPoint.gr, S, r)
+            u = networks[j].accessPoint.memory.prevU
+            recordings[j].addDataPoint(networks[j].accessPoint.p, networks[j].accessPoint.gr, S, r, u)
         for j in range(len(networks)):
             otherNetworks = networks[:j] + networks[j+1:]
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
@@ -100,26 +103,22 @@ def oldnewApPower(network, interferingStations):
     return network.accessPoint.p + POWER_INCREMENT
     
 def newApPower(network, interferingStations):
-
     c = 20
     maxP = 1.0
     minP = 0.1
-    
     p = network.accessPoint.p
-    prevU = network.accessPoint.memory.prevUref
-    
+    prevU = network.accessPoint.memory.prevU
     S = normalisedNetworkThroughput(network, interferingStations, EXPECTED_PACKET_SIZE)
     r = getAverageDataRate20MHZ(network, interferingStations)
-    y = S * r
-        
+    
+    y = S * r        
     u = y - c * p
     du = (u - prevU)
     
-    newApPower = p * (1 + du / u)
+    newP = p * (1 + du / u)
+    network.accessPoint.memory.prevU = u
     
-    network.accessPoint.memory.prevUref = u 
-    
-    return max(min(newApPower, maxP), minP)
+    return max(min(newP, maxP), minP)
     
 
 def newApSnrFloor(newApPower):

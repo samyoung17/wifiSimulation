@@ -3,10 +3,7 @@ import random
 
 class Memory:
     def __init__(self):
-        self.uRef=0
-        self.prevUref = 0
-        self.iteration=0
-        self.prevState=0
+        self.prevU = 0
         
 class Station:
     def __init__(self, x, y, p, q, gr, snrFloor):
@@ -49,12 +46,14 @@ class Recording:
         self.apGain = []
         self.normalisedThroughput = []        
         self.dataRate = []
+        self.utility = []
         
-    def addDataPoint(self, p, gr, S, r):
+    def addDataPoint(self, p, gr, S, r, u):
         self.apPower.append(p)
         self.apGain.append(gr)
         self.normalisedThroughput.append(S)
         self.dataRate.append(r)
+        self.utility.append(u)
         
 
 AP_INITIAL_POWER = 0.1
