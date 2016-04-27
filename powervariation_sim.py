@@ -148,7 +148,7 @@ def powerVariationSim():
             networks.append(network)
     plotNetworks(networks, (width + xSpace) * a, (length + ySpace) * b)
 
-    testPowerVariation(networks, [1,2], [1,3], numIterations)
+    testPowerVariation(networks, [1,3], [1,2], numIterations)
     
 def congestionPlot():
     probList = []
