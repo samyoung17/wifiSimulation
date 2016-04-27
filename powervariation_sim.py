@@ -106,6 +106,7 @@ def newApPower(network, interferingStations):
     c = 20
     maxP = 1.0
     minP = 0.1
+    pPert = 0.1
     p = network.accessPoint.p
     prevU = network.accessPoint.memory.prevU
     S = normalisedNetworkThroughput(network, interferingStations, EXPECTED_PACKET_SIZE)
@@ -118,6 +119,9 @@ def newApPower(network, interferingStations):
     newP = p * (1 + du / u)
     network.accessPoint.memory.prevU = u
     
+    if random.random() < 0.05:
+        newP += pPert
+    
     return max(min(newP, maxP), minP)
     
 
@@ -125,17 +129,7 @@ def newApSnrFloor(newApPower):
     return AP_INITIAL_SNR_FLOOR * newApPower / AP_INITIAL_POWER
     
     
-def powerVariationSim():
-    a = 5
-    b = 4
-    width = 7
-    length = 7
-    xSpace = 7
-    ySpace = 7
-    n = 6
-    isStandard = True
-    numIterations = 20
-    
+def powerVariationSim(a, b, width, length, xSpace, ySpace, n, isStandard, numIterations):
     networks = []
     for i in range(a):
         for j in range(b):
@@ -164,7 +158,8 @@ def congestionPlot():
     plt.show()
         
 congestionPlot()
-powerVariationSim()
+powerVariationSim(a = 5, b = 4, width = 7, length = 7, xSpace = 7, ySpace = 7,
+                  n = 6, isStandard = True, numIterations = 50)
 
 
 
