@@ -28,9 +28,19 @@ def testProportionalControlAlgorithm(a, b, iRange, jRange,
     title = 'Throughput - P control'
     plotName = title + ' cellDim=' + str((a,b)) + ' networkDim=' + str((width, length)) \
                 + ' spacing=' + str((xSpace, ySpace)) + ' nodes=' + str(n) \
-                + ' iter=' + str(numIterations) + ' mcIter' + str(mcIterations)
-    plotTimeseries(avgThroughputTss, labels, 'Normalised Throughput', 'figures/' + plotName)
-    
-testProportionalControlAlgorithm(a = 5, b = 4, iRange = [1,3], jRange = [1,2],
-             width = 7, length = 7, xSpace = 7, ySpace = 7,
-             n = 6, isStandard = False, numIterations = 10, mcIterations = 2, maxPower=0.5, powerCost=0.3)
+                + ' iter=' + str(numIterations)  + 'maxPower=' + str(maxPower) + 'powerCost='+ str(powerCost) + ' mcIter' + str(mcIterations) +'.png'
+                
+    plotTimeseries(avgThroughputTss, labels, title, 'figures/' + plotName )
+
+def testProportionalControlParameters (maxPowerInitial, maxPowerFinal, maxPowerStep, powerCostInitial, powerCostFinal, powerCostStep, numIterations, mcIterations):
+    maxPower=maxPowerInitial
+    for i in range(int((maxPowerFinal-maxPowerInitial)/maxPowerStep)):
+        powerCost = powerCostInitial
+        for j in range (int((powerCostFinal-powerCostInitial)/powerCostStep)):
+                testProportionalControlAlgorithm(a = 5, b = 4, iRange = [1,3], jRange = [1,2],
+                                                     width = 7, length = 7, xSpace = 7, ySpace = 7,
+                                                     n = 6, isStandard = False, numIterations=numIterations, mcIterations=mcIterations, maxPower=maxPower, powerCost=powerCost)
+                powerCost = powerCost + powerCostStep
+        maxPower = maxPower + maxPowerStep
+ 
+testProportionalControlParameters(0.5, 0.8, 0.1, 0, 0.2, 0.1, 2, 1)       
