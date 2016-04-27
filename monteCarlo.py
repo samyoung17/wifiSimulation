@@ -1,6 +1,7 @@
 from powervariation_sim import *
 from numpy import *
 import os
+import sys
 
 
 def testOdeAlgorithm(a, b, iRange, jRange,
@@ -39,7 +40,8 @@ def testOdeAlgorithm(a, b, iRange, jRange,
     
     params = ' cellDim=' + str((a,b)) + ' networkDim=' + str((width, length)) \
                 + ' spacing=' + str((xSpace, ySpace)) + ' nodes=' + str(n) \
-                + ' iter=' + str(numIterations) + ' mcIter=' + str(mcIterations)
+                + ' iter=' + str(numIterations) + ' mcIter=' + str(mcIterations) \
+                + '.png'
     
     figDir = 'figures/ODE Algorithm'
     if not os.path.isdir(figDir):
@@ -52,7 +54,15 @@ def testOdeAlgorithm(a, b, iRange, jRange,
     plotTimeseries(avgUtilityTss, labels, 'Utility', figDir + '/Utility' + params)
         
 
-testOdeAlgorithm(a = 5, b = 4, iRange = [1,3], jRange = [1,2],
-                 width = 7, length = 7, xSpace = 7, ySpace = 7,
-                 n = 6, isStandard = False, numIterations = 4, mcIterations = 2)
+if __name__ == '__main__':
+    if len(sys.argv) != 6:
+        raise ValueError('Not enough arguments, expected [width, length, xSpace, ySpace, nodes], got' + str(sys.argv[1:]))
+    width = float(sys.argv[1])
+    length = float(sys.argv[2])
+    xSpace = float(sys.argv[3])
+    ySpace = float(sys.argv[4])
+    n = int(sys.argv[5])
+    testOdeAlgorithm(a = 5, b = 4, iRange = [1,3], jRange = [1,2],
+                 width = width, length = length, xSpace = xSpace, ySpace = ySpace,
+                 n = n, isStandard = False, numIterations = 4, mcIterations = 2)
 

@@ -23,7 +23,9 @@ def plotTimeseries(timeseries, labels, title, fileName = None):
     lgd = plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
     if fileName != None:
         plt.savefig(fileName, bbox_extra_artists=(lgd,), bbox_inches='tight')
-    plt.show()
+    else:
+        plt.show()
+    plt.clf()
     
 
 def plotRecordings(recordings):
