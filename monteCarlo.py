@@ -1,20 +1,10 @@
 from powervariation_sim import *
 from numpy import *
 
-
-def testOdeAlgorithm():
-    a = 5
-    b = 4
-    iRange = [1,3]
-    jRange = [1,2]
-    width = 7
-    length = 7 
-    xSpace = 7
-    ySpace = 7
-    n = 6
-    isStandard = False
-    numIterations = 10
-    mcIterations = 2
+def testOdeAlgorithm(a, b, iRange, jRange,
+                     width, length, xSpace, ySpace, 
+                     n, isStandard, numIterations, mcIterations):
+    
     
     numNetworksToPlot = (iRange[1] + 1 - iRange[0]) * (jRange[1] + 1 - jRange[0])
     sumThroughputTss = zeros([numNetworksToPlot, numIterations])
@@ -28,7 +18,13 @@ def testOdeAlgorithm():
         sumThroughputTss = add(sumThroughputTss, throughputTss)
         
     avgThroughputTss = sumThroughputTss / mcIterations
-    plotTimeseries(avgThroughputTss, labels, 'Normalised Throughput')
+    title = 'Normalised Throughput'
+    plotName = title + ' cellDim=' + str((a,b)) + ' networkDim=' + str((width, length)) \
+                + ' spacing=' + str((xSpace, ySpace)) + ' nodes=' + str(n) \
+                + ' iter=' + str(numIterations) + ' mcIter' + str(mcIterations)
+    plotTimeseries(avgThroughputTss, labels, 'Normalised Throughput', 'figures/' + plotName)
         
 
-testOdeAlgorithm()
+testOdeAlgorithm(a = 5, b = 4, iRange = [1,3], jRange = [1,2],
+                 width = 7, length = 7, xSpace = 7, ySpace = 7,
+                 n = 6, isStandard = False, numIterations = 10, mcIterations = 2)

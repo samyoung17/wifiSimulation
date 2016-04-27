@@ -13,15 +13,18 @@ def plotNetworks(networks, width, length):
     plt.axis([0, width, 0, length])
     plt.show()
 
-def plotTimeseries(timeseries, labels, title):
+def plotTimeseries(timeseries, labels, title, fileName = None):
     time = range(len(timeseries[0]))
     for i in range(len(timeseries)):
         plt.plot(time, timeseries[i], label=labels[i])
     avg = mean(timeseries, axis = 0)
     plt.plot(avg, label='Average', c='black', ls='--', lw=2)
     plt.title(title)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
-    plt.show()  
+    lgd = plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
+    if fileName != None:
+        plt.savefig(fileName, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.show()
+    
 
 def plotRecordings(recordings):
     normalisedThroughputTss = array(map(lambda r: r.normalisedThroughput, recordings))
