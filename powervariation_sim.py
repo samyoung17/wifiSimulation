@@ -99,9 +99,82 @@ def runPowerVariationAlgorithm(networks, numIterations):
             
     return recordings
     
+def runPowerVariationAlgorithmControl(networks, numIterations, maxPower, powerCost):
+    recordings = []
+    for network in networks:
+        recordings.append(Recording(network.index))
+        
+    for i in range(numIterations):        
+        for j in range(len(networks)):
+            otherNetworks = networks[:j] + networks[j+1:]
+            stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
+            S = normalisedNetworkThroughput(networks[j], stationsFromOtherNetworks, EXPECTED_PACKET_SIZE)
+            r = getAverageDataRate20MHZ(networks[j], stationsFromOtherNetworks)
+            u = networks[j].accessPoint.memory.prevU
+            recordings[j].addDataPoint(networks[j].accessPoint.p, networks[j].accessPoint.gr, S, r, u)
+        for j in range(len(networks)):
+            otherNetworks = networks[:j] + networks[j+1:]
+            stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
+            networks[j].accessPoint.p = newApPowerControl(networks[j], stationsFromOtherNetworks, maxPower, powerCost)
+            networks[j].accessPoint.snrFloor = newApSnrFloor(networks[j].accessPoint.p)
+            
+    return recordings  
+    
 
 def oldnewApPower(network, interferingStations):
     return network.accessPoint.p + POWER_INCREMENT
+
+def newApPowerControl(network, interferingStations, maxPower, powerExponent):
+    #parameters
+    powerGain=0.15 #temporary gain factor to avoid modifying global variables for now
+    powerExponent = 0.3 #the larger this value the larger focus on minimizng power
+    referenceDecay = 0.8
+    maxPowerBackoff=0.95*maxPower
+    referenceBackoffOnMaxPowerHit=0.9
+    minPower=0.05
+    maxCycles=20
+    initialRef=65
+    powerDecay=0.7
+    S = normalisedNetworkThroughput(network, interferingStations, EXPECTED_PACKET_SIZE)
+    r = getAverageDataRate20MHZ(network, interferingStations)
+    U=S*r/power(network.accessPoint.p,powerExponent)
+    
+    ref = network.accessPoint.memory.uRef
+    #first iteration of the algorithm
+    if network.accessPoint.memory.prevUref == 0:
+         network.accessPoint.memory.prevUref = U
+         network.accessPoint.memory.uRef = initialRef
+         network.accessPoint.memory.iterations = 1
+     #subsequent iterations
+
+    if U<ref:
+        if network.accessPoint.memory.prevState==1:
+            #reduce reference only if power has been increased for two consecutive cycles
+            network.accessPoint.memory.uRef = power(referenceDecay, (ref-U)/ref) * ref
+        network.accessPoint.memory.prevState=1
+        powerInc = powerGain*(ref-U)/ref
+        #capacity reduced
+        newApPower = network.accessPoint.p+powerInc
+    
+    else:
+        network.accessPoint.memory.iterations = network.accessPoint.memory.iterations +1
+        powerInc = powerGain*power(powerDecay, network.accessPoint.memory.iterations)
+        network.accessPoint.memory.prevState=-1
+        newApPower = network.accessPoint.p-powerInc
+        
+    #resetting maximum capacity every n cycles
+    if network.accessPoint.memory.iterations==maxCycles:
+        network.accessPoint.memory.iterations=3
+        network.accessPoint.memory.uRef=ref*1.1
+
+    if newApPower>maxPower:
+        newApPower = maxPowerBackoff
+        network.accessPoint.memory.uRef=ref*referenceBackoffOnMaxPowerHit
+        
+    elif newApPower<=0:
+        newApPower = minPower
+             
+    return newApPower
     
 def newApPower(network, interferingStations):
     c = 20

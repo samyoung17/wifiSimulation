@@ -4,6 +4,9 @@ import random
 class Memory:
     def __init__(self):
         self.prevU = 0
+        self.uRef = 0
+        self. prevUref = 0
+        self.prevState = 0
         
 class Station:
     def __init__(self, x, y, p, q, gr, snrFloor):
