@@ -74,13 +74,12 @@ def testAlternativeSchemes(networks, recordings, iRange, jRange):
             averagePowerAtEnd,"):", avgThroughputUsingAvgPower
     print "Average throughput (for the 6 central networks) with all the APs using the maximum power from the power mgmt algorithm(",    \
             maxPowerAtEnd,"):", avgThroughputUsingMaxPower
-        
-def testPowerVariation(networks, iPlotRange, jPlotRange, numIterations):
-    #just a temporary function to see how changing interfering AP power affects the model
+
+def runPowerVariationAlgorithm(networks, numIterations):
     recordings = []
     for network in networks:
         recordings.append(Recording(network.index))
-
+        
     for i in range(numIterations):        
         for j in range(len(networks)):
             otherNetworks = networks[:j] + networks[j+1:]
@@ -94,11 +93,10 @@ def testPowerVariation(networks, iPlotRange, jPlotRange, numIterations):
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
             networks[j].accessPoint.p = newApPower(networks[j], stationsFromOtherNetworks)
             networks[j].accessPoint.snrFloor = newApSnrFloor(networks[j].accessPoint.p)
+            
+    return recordings
     
-    recordingsToPlot = filter(lambda r: inRange(r.index[0], iPlotRange) and inRange(r.index[1], jPlotRange), recordings)
-    plotRecordings(recordingsToPlot)
-    testAlternativeSchemes(networks, recordings, iPlotRange, jPlotRange)
-    
+
 def oldnewApPower(network, interferingStations):
     return network.accessPoint.p + POWER_INCREMENT
     
@@ -128,8 +126,8 @@ def newApPower(network, interferingStations):
 def newApSnrFloor(newApPower):
     return AP_INITIAL_SNR_FLOOR * newApPower / AP_INITIAL_POWER
     
-    
-def powerVariationSim(a, b, width, length, xSpace, ySpace, n, isStandard, numIterations):
+
+def createNetworks(a, b, width, length, xSpace, ySpace, n, isStandard):
     networks = []
     for i in range(a):
         for j in range(b):
@@ -140,9 +138,15 @@ def powerVariationSim(a, b, width, length, xSpace, ySpace, n, isStandard, numIte
             else:
                 network = Network((i,j), xOffset, yOffset, width, length, n)
             networks.append(network)
-    plotNetworks(networks, (width + xSpace) * a, (length + ySpace) * b)
+    return networks
 
-    testPowerVariation(networks, [1,3], [1,2], numIterations)
+def powerVariationSim(a, b, width, length, xSpace, ySpace, n, isStandard, numIterations):
+    networks = createNetworks(a, b, width, length, xSpace, ySpace, n, isStandard)
+    plotNetworks(networks, (width + xSpace) * a, (length + ySpace) * b)
+    recordings = runPowerVariationAlgorithm(networks, numIterations)    
+    recordingsToPlot = filter(lambda r: inRange(r.index[0], [1,3]) and inRange(r.index[1], [1,2]), recordings)
+    plotRecordings(recordingsToPlot)
+    testAlternativeSchemes(networks, recordings, [1,3], [1,2])
     
 def congestionPlot():
     probList = []
@@ -159,7 +163,7 @@ def congestionPlot():
         
 congestionPlot()
 powerVariationSim(a = 5, b = 4, width = 7, length = 7, xSpace = 7, ySpace = 7,
-                  n = 6, isStandard = True, numIterations = 50)
+                  n = 6, isStandard = True, numIterations = 5)
 
 
 
