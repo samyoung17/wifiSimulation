@@ -3,7 +3,6 @@ from numpy import *
 import os
 import sys
 
-
 def testOdeAlgorithm(a, b, iRange, jRange,
                      width, length, xSpace, ySpace, 
                      n, isStandard, numIterations, mcIterations):
@@ -40,29 +39,30 @@ def testOdeAlgorithm(a, b, iRange, jRange,
     
     params = ' cellDim=' + str((a,b)) + ' networkDim=' + str((width, length)) \
                 + ' spacing=' + str((xSpace, ySpace)) + ' nodes=' + str(n) \
-                + ' iter=' + str(numIterations) + ' mcIter=' + str(mcIterations) \
-                + '.png'
+                + ' iter=' + str(numIterations) + ' mcIter=' + str(mcIterations)
     
-    figDir = 'figures/ODE Algorithm'
-    if not os.path.isdir(figDir):
-        os.makedirs(figDir)
+    figDir = 'figures/ODE Algorithm/' + params
+    os.makedirs(figDir)
     
-    plotTimeseries(avgNormalisedThroughputTss, labels, 'Normalised Throughput', figDir + '/Normalised Throughput' + params)
-    plotTimeseries(avgDataRateTss, labels, 'Data Rate', figDir + '/Data Rate' + params)
-    plotTimeseries(avgApPowerTss, labels, 'AP Power', figDir + '/AP Power' + params)
-    plotTimeseries(avgThroughputTss, labels, 'Throughput', figDir + '/Throughput' + params)
-    plotTimeseries(avgUtilityTss, labels, 'Utility', figDir + '/Utility' + params)
+    plotTimeseries(avgNormalisedThroughputTss, labels, 'Normalised Throughput', figDir + '/Normalised Throughput.png')
+    plotTimeseries(avgDataRateTss, labels, 'Data Rate', figDir + '/Data Rate.png')
+    plotTimeseries(avgApPowerTss, labels, 'AP Power', figDir + '/AP Power.png')
+    plotTimeseries(avgThroughputTss, labels, 'Throughput', figDir + '/Throughput.png')
+    plotTimeseries(avgUtilityTss, labels, 'Utility', figDir + '/Utility.png')
         
 
 if __name__ == '__main__':
-    if len(sys.argv) != 6:
-        raise ValueError('Not enough arguments, expected [width, length, xSpace, ySpace, nodes], got' + str(sys.argv[1:]))
+    if len(sys.argv) != 8:
+        raise ValueError('Not enough arguments, expected [width, length, xSpace, ySpace, nodes, numIter, mcIter], got ' + str(sys.argv[1:]))
     width = float(sys.argv[1])
     length = float(sys.argv[2])
     xSpace = float(sys.argv[3])
     ySpace = float(sys.argv[4])
     n = int(sys.argv[5])
+    numIter = int(sys.argv[6])
+    mcIter = int(sys.argv[7])
+    
     testOdeAlgorithm(a = 5, b = 4, iRange = [1,3], jRange = [1,2],
                  width = width, length = length, xSpace = xSpace, ySpace = ySpace,
-                 n = n, isStandard = False, numIterations = 4, mcIterations = 2)
+                 n = n, isStandard = False, numIterations = numIter, mcIterations = mcIter)
 
