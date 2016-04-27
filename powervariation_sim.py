@@ -80,7 +80,7 @@ def testAlternativeSchemes(networks, recordings, iRange, jRange):
     print "Average throughput (for the 6 central networks) with all the APs using the maximum power from the power mgmt algorithm(",    \
             maxPowerAtEnd,"):", avgThroughputUsingMaxPower
 
-def runPowerVariationAlgorithm(networks, numIterations):
+def runPowerVariationAlgorithm(networks, numIterations, c = 20, pPert = 0.1):
     recordings = []
     for network in networks:
         recordings.append(Recording(network.index))
@@ -96,7 +96,7 @@ def runPowerVariationAlgorithm(networks, numIterations):
         for j in range(len(networks)):
             otherNetworks = networks[:j] + networks[j+1:]
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
-            networks[j].accessPoint.p = newApPower(networks[j], stationsFromOtherNetworks)
+            networks[j].accessPoint.p = newApPower(networks[j], stationsFromOtherNetworks, c, pPert)
             networks[j].accessPoint.snrFloor = newApSnrFloor(networks[j].accessPoint.p)
             
     return recordings
@@ -178,11 +178,9 @@ def newApPowerControl(network, interferingStations, maxPower, powerExponent):
              
     return newApPower
     
-def newApPower(network, interferingStations):
-    c = 20
+def newApPower(network, interferingStations, c, pPert):
     maxP = 1.0
     minP = 0.1
-    pPert = 0.1
     p = network.accessPoint.p
     prevU = network.accessPoint.memory.prevU
     S = normalisedNetworkThroughput(network, interferingStations, EXPECTED_PACKET_SIZE)

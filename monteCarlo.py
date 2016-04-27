@@ -5,8 +5,15 @@ import sys
 
 def testOdeAlgorithm(a, b, iRange, jRange,
                      width, length, xSpace, ySpace, 
+                     c, pPert,
                      n, isStandard, numIterations, mcIterations):
     
+    params = ' cellDim=' + str((a,b)) + ' networkDim=' + str((width, length)) \
+                + ' spacing=' + str((xSpace, ySpace)) + ' nodes=' + str(n) \
+                + ' iter=' + str(numIterations) + ' mcIter=' + str(mcIterations) \
+                + ' c=' + str(c) + ' pPert=' + str(pPert)
+                
+    print("Testing ODE Algorithm with parameters:" + params)
     
     numNetworksToPlot = (iRange[1] + 1 - iRange[0]) * (jRange[1] + 1 - jRange[0])
     
@@ -19,7 +26,7 @@ def testOdeAlgorithm(a, b, iRange, jRange,
     for i in range(mcIterations):
         print("Running iteration " + str(i+1) + "/" + str(mcIterations))
         networks = createNetworks(a, b, width, length, xSpace, ySpace, n, isStandard)        
-        recordings = runPowerVariationAlgorithm(networks, numIterations)
+        recordings = runPowerVariationAlgorithm(networks, numIterations, c, pPert)
         recordingsToPlot = filter(lambda r: inRange(r.index[0], iRange) and inRange(r.index[1], jRange), recordings)
         
         labels = map(lambda r: 'Network' + str(r.index), recordingsToPlot)
@@ -36,10 +43,6 @@ def testOdeAlgorithm(a, b, iRange, jRange,
     avgApPowerTss = sumApPowerTss / mcIterations
     avgThroughputTss = sumThroughputTss / mcIterations
     avgUtilityTss = sumUtilityTss / mcIterations
-    
-    params = ' cellDim=' + str((a,b)) + ' networkDim=' + str((width, length)) \
-                + ' spacing=' + str((xSpace, ySpace)) + ' nodes=' + str(n) \
-                + ' iter=' + str(numIterations) + ' mcIter=' + str(mcIterations)
     
     figDir = 'figures/ODE Algorithm/' + params
     os.makedirs(figDir)
@@ -62,7 +65,12 @@ if __name__ == '__main__':
     numIter = int(sys.argv[6])
     mcIter = int(sys.argv[7])
     
-    testOdeAlgorithm(a = 5, b = 4, iRange = [1,3], jRange = [1,2],
-                 width = width, length = length, xSpace = xSpace, ySpace = ySpace,
-                 n = n, isStandard = False, numIterations = numIter, mcIterations = mcIter)
+    cValues = [10,15,20,25,30,35,40]
+    pPertValues = [0.04, 0.08, 0.12, 0.16]
+    for c in cValues:
+        for pPert in pPertValues:
+            testOdeAlgorithm(a = 5, b = 4, iRange = [1,3], jRange = [1,2],
+                         width = width, length = length, xSpace = xSpace, ySpace = ySpace,
+                         c = c, pPert = pPert,
+                         n = n, isStandard = False, numIterations = numIter, mcIterations = mcIter)
 
