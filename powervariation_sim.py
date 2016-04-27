@@ -29,7 +29,7 @@ def plotRecordings(recordings):
     apPowerTss = array(map(lambda r: r.apPower, recordings))
     throughputTss = array(map(lambda r: multiply(r.dataRate, r.normalisedThroughput), recordings))      
     utilityTss = array(map(lambda r: r.utility, recordings))
-    labels = map(lambda r: 'Network' + str(r.index), recordings)    
+    labels = map(lambda r: 'Network' + str(r.index), recordings)  
     plotTimeseries(normalisedThroughputTss, labels, 'Normalised Throughput')
     plotTimeseries(dataRateTss, labels, 'Data Rate')
     plotTimeseries(apPowerTss, labels, 'AP Power')
@@ -161,9 +161,9 @@ def congestionPlot():
     plt.plot(xaxis, probList)
     plt.show()
         
-congestionPlot()
-powerVariationSim(a = 5, b = 4, width = 7, length = 7, xSpace = 7, ySpace = 7,
-                  n = 6, isStandard = True, numIterations = 5)
+#congestionPlot()
+#powerVariationSim(a = 5, b = 4, width = 7, length = 7, xSpace = 7, ySpace = 7,
+#                  n = 6, isStandard = True, numIterations = 5)
 
 
 
