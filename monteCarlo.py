@@ -65,10 +65,10 @@ if __name__ == '__main__':
     numIter = int(sys.argv[6])
     mcIter = int(sys.argv[7])
     
-    cValues = [10,15,20,25,30,35,40]
-    pPertValues = [0.04, 0.08, 0.12, 0.16]
-    for c in cValues:
-        for pPert in pPertValues:
+    cValues = [20, 30, 25, 15, 35, 40]
+    pPertValues = [0.08, 0.12, 0.04, 0.16]
+    for pPert in pPertValues:
+        for c in cValues:
             testOdeAlgorithm(a = 5, b = 4, iRange = [1,3], jRange = [1,2],
                          width = width, length = length, xSpace = xSpace, ySpace = ySpace,
                          c = c, pPert = pPert,
