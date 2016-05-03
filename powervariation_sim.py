@@ -80,7 +80,7 @@ def testAlternativeSchemes(networks, recordings, iRange, jRange):
     print "Average throughput (for the 6 central networks) with all the APs using the maximum power from the power mgmt algorithm(",    \
             maxPowerAtEnd,"):", avgThroughputUsingMaxPower
 
-def runPowerVariationAlgorithm(networks, numIterations, c = 20, pPert = 0.1):
+def runPowerVariationAlgorithm(networks, numIterations, c = 20):
     recordings = []
     for network in networks:
         recordings.append(Recording(network.index))
@@ -96,7 +96,7 @@ def runPowerVariationAlgorithm(networks, numIterations, c = 20, pPert = 0.1):
         for j in range(len(networks)):
             otherNetworks = networks[:j] + networks[j+1:]
             stationsFromOtherNetworks = reduce(lambda x,y: x+y, map(allStations, otherNetworks))
-            networks[j].accessPoint.p = newApPower(networks[j], stationsFromOtherNetworks, c, pPert)
+            networks[j].accessPoint.p = newApPower(networks[j], stationsFromOtherNetworks, c)
             networks[j].accessPoint.snrFloor = newApSnrFloor(networks[j].accessPoint.p)
             
     return recordings
@@ -178,7 +178,7 @@ def newApPowerControl(network, interferingStations, maxPower, powerExponent):
              
     return newApPower
     
-def newApPower(network, interferingStations, c, pPert):
+def newApPower(network, interferingStations, c):
     maxP = 1.0
     minP = 0.1
     p = network.accessPoint.p
@@ -192,9 +192,6 @@ def newApPower(network, interferingStations, c, pPert):
     
     newP = p * (1 + du / u)
     network.accessPoint.memory.prevU = u
-    
-    if random.random() < 0.05:
-        newP += pPert
     
     return max(min(newP, maxP), minP)
     

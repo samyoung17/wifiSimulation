@@ -5,13 +5,13 @@ import sys
 
 def testOdeAlgorithm(a, b, iRange, jRange,
                      width, length, xSpace, ySpace, 
-                     c, pPert,
+                     c,
                      n, isStandard, numIterations, mcIterations):
     
     params = ' cellDim=' + str((a,b)) + ' networkDim=' + str((width, length)) \
                 + ' spacing=' + str((xSpace, ySpace)) + ' nodes=' + str(n) \
                 + ' iter=' + str(numIterations) + ' mcIter=' + str(mcIterations) \
-                + ' c=' + str(c) + ' pPert=' + str(pPert)
+                + ' c=' + str(c)
                 
     print("Testing ODE Algorithm with parameters:" + params)
     
@@ -26,7 +26,7 @@ def testOdeAlgorithm(a, b, iRange, jRange,
     for i in range(mcIterations):
         print("Running iteration " + str(i+1) + "/" + str(mcIterations))
         networks = createNetworks(a, b, width, length, xSpace, ySpace, n, isStandard)        
-        recordings = runPowerVariationAlgorithm(networks, numIterations, c, pPert)
+        recordings = runPowerVariationAlgorithm(networks, numIterations, c)
         recordingsToPlot = filter(lambda r: inRange(r.index[0], iRange) and inRange(r.index[1], jRange), recordings)
         
         labels = map(lambda r: 'Network' + str(r.index), recordingsToPlot)
@@ -66,11 +66,9 @@ if __name__ == '__main__':
     mcIter = int(sys.argv[7])
     
     cValues = [20, 30, 25, 15, 35, 40]
-    pPertValues = [0.08, 0.12, 0.04, 0.16]
-    for pPert in pPertValues:
-        for c in cValues:
-            testOdeAlgorithm(a = 5, b = 4, iRange = [1,3], jRange = [1,2],
-                         width = width, length = length, xSpace = xSpace, ySpace = ySpace,
-                         c = c, pPert = pPert,
-                         n = n, isStandard = False, numIterations = numIter, mcIterations = mcIter)
+    for c in cValues:
+        testOdeAlgorithm(a = 5, b = 4, iRange = [1,3], jRange = [1,2],
+                     width = width, length = length, xSpace = xSpace, ySpace = ySpace,
+                     c = c,
+                     n = n, isStandard = False, numIterations = numIter, mcIterations = mcIter)
 
